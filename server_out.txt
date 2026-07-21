@@ -1,0 +1,4 @@
+Database initialized successfully.
+Starting Flask Server on http://localhost:8000
+ * Serving Flask app 'server'
+ * Debug mode: on

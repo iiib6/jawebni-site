@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>جاوبني — موظّفك الذكي الذي لا ينام</title>
+  <meta name="description" content="وكلاء ذكاء اصطناعي بمستوى نخبة، يردّون على عملائك بلغة إنسانية دافئة، ويُغلقون الصفقات في ثوانٍ — على مدار الساعة." />
+  <meta property="og:title" content="جاوبني — موظّفك الذكي الذي لا ينام" />
+  <meta property="og:description" content="وكلاء ذكاء اصطناعي بمستوى نخبة، يردّون على عملائك ويُغلقون الصفقات في ثوانٍ — على مدار الساعة." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2322392B'/%3E%3Cpath d='M32 14 L50 32 L32 50 L14 32 Z' fill='%23C4A35A'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- التنقّل -->
+  <nav class="nav" id="nav" aria-label="التنقل الرئيسي">
+    <a class="nav__logo" href="#hero">جاوبني</a>
+    <a class="nav__cta" href="#cta">احجز عرضك التجريبي</a>
+  </nav>
+
+  <!-- المشهد الافتتاحي: خيط الجواب -->
+  <header class="hero" id="hero">
+    <div class="hero__stage">
+      <svg class="hero__svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <path id="thread" class="thread" fill="none" />
+        <g id="milestones"></g>
+        <text id="letter" class="hero__letter" x="880" y="600" text-anchor="middle">ح</text>
+        <g id="dot">
+          <circle class="dot-glow" r="44" />
+          <path class="dot-core" d="M0 -32 L32 0 L0 32 L-32 0 Z" />
+        </g>
+      </svg>
+
+      <div class="hero__reveal">
+        <h1 class="hero__wordmark">جاوبني</h1>
+        <p class="hero__tagline">موظّفك الذكي الذي لا ينام</p>
+        <p class="hero__sub">وكلاء ذكاء اصطناعي بمستوى نخبة، يردّون على عملائك بلغة إنسانية دافئة، ويُغلقون الصفقات في ثوانٍ — على مدار الساعة.</p>
+      </div>
+
+      <div class="hero__cue">
+        <span class="hero__cue-diamond" aria-hidden="true"></span>
+        <span>انزل شوي… خلّي الجواب يوصل</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- المشكلة -->
+  <section class="problem" id="problem">
+    <div class="container">
+      <blockquote class="problem__quote" id="quote">«كل دقيقة تأخير بالرسائل… زبون طلع من الباب، وفلوس راحت لغيرك.»</blockquote>
+      <div class="thread-divider" aria-hidden="true"></div>
+      <p class="problem__body">إنت بنيت اسم كبير، وصفحتك توصلها مئات الرسائل باليوم. بس الزبون اليوم ما ينتظر — يسأل عن السعر، وإذا ما إجاه جواب بدقايق، يشتري من المنافس ويمشي.</p>
+      <p class="problem__kicker">صفحتك مليانة رسائل؟ هذا مو ضغط… هذي فلوس تنتظر من يرد عليها.</p>
+    </div>
+  </section>
+
+  <!-- العرض: فوق الفيلم -->
+  <section class="film" id="offer">
+    <div class="film__media" aria-hidden="true">
+      <video class="film__video" src="assets/hero-film.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <div class="film__overlay"></div>
+    </div>
+    <div class="container film__content">
+      <h2 class="film__title">مو بوت.<br />موظف مبيعات نخبة.</h2>
+      <p class="film__body">«جاوبني» مو بوت يرد ردود جاهزة. هو موظف مبيعات نخبة، مبني بالذكاء الاصطناعي: <em>يحچي مثل أحسن موظف عندك</em> وبنفس روح علامتك، حافظ كل منتج وكل سعر وكل عرض، <em>ويسكّر البيعة بثواني</em> — الساعة ٣ الظهر أو ٣ الفجر، نفس الحماس ونفس الدقة.</p>
+    </div>
+  </section>
+
+  <!-- شلون يشتغل: ثلاث غرزات -->
+  <section class="steps" id="steps">
+    <div class="container">
+      <h2 class="section-title">من الرسالة… للبيعة</h2>
+      <div class="steps__track">
+        <svg class="steps__svg" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true">
+          <line id="steps-line" class="steps__line" x1="1200" y1="60" x2="0" y2="60" />
+        </svg>
+        <ol class="steps__list">
+          <li class="step">
+            <span class="step__diamond" aria-hidden="true"></span>
+            <h3 class="step__name">رسالة توصل</h3>
+            <p class="step__desc">زبون يسأل عن سعر، عرض، أو تفصيلة — بأي ساعة.</p>
+          </li>
+          <li class="step">
+            <span class="step__diamond" aria-hidden="true"></span>
+            <h3 class="step__name">جواب يقنع</h3>
+            <p class="step__desc">«جاوبني» يرد بثواني، بلغة إنسانية دافئة وبروح علامتك.</p>
+          </li>
+          <li class="step">
+            <span class="step__diamond" aria-hidden="true"></span>
+            <h3 class="step__name">بيعة تنسكّر</h3>
+            <p class="step__desc">يقفل الصفقة قبل ما يبرد حماس الزبون — ويروح للرسالة اللي بعدها.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- الميزات -->
+  <section class="features" id="features">
+    <div class="features__witness" aria-hidden="true"><span>ج</span><span>و</span><span>ب</span></div>
+    <div class="container">
+      <h2 class="section-title section-title--light">ليش يبيع أحسن من أي بوت؟</h2>
+      <ul class="features__list">
+        <li class="feature">
+          <h3 class="feature__name">بروح علامتك</h3>
+          <p class="feature__desc">يحچي مثل أحسن موظف عندك — نفس النبرة، نفس الأسلوب، نفس الاهتمام.</p>
+        </li>
+        <li class="feature">
+          <h3 class="feature__name">حافظ كل شي</h3>
+          <p class="feature__desc">كل منتج، كل سعر، كل عرض — جواب دقيق من أول رسالة، بلا «لحظة أتأكد».</p>
+        </li>
+        <li class="feature">
+          <h3 class="feature__name">يسكّر بثواني</h3>
+          <p class="feature__desc">المنافس ما يسبقك بالمنتج — يسبقك بسرعة الرد. مع «جاوبني»، الجواب يوصل أول.</p>
+        </li>
+        <li class="feature">
+          <h3 class="feature__name">٢٤/٧ نفس الحماس</h3>
+          <p class="feature__desc">الساعة ٣ الظهر أو ٣ الفجر — نفس الدقة، نفس الهمّة، ولا رسالة تنضاع.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- الدعوة -->
+  <section class="cta" id="cta">
+    <div class="cta__witness" aria-hidden="true"><span>ن</span><span>ي</span></div>
+    <div class="container cta__content">
+      <p class="cta__eyebrow">خلّي كل رسالة تتحول لبيعة.</p>
+      <h2 class="cta__title">شوفه يشتغل قدّامك</h2>
+      <p class="cta__sub">احجز عرضاً تجريبياً خاصاً، وشوف «جاوبني» يرد على زبائنك الحقيقيين — قدّامك، مباشرة.</p>
+      <a class="cta__button" href="#cta">احجز عرضك التجريبي</a>
+    </div>
+  </section>
+  <!-- نافذة المحادثة التجريبية (Demo Chat Modal) -->
+  <div class="demo-modal" id="demoModal" aria-hidden="true" style="display: none;">
+    <div class="demo-modal__backdrop" id="demoModalBackdrop"></div>
+    <div class="demo-modal__card">
+      <button class="demo-modal__close" id="closeDemoModal" aria-label="إغلاق">&times;</button>
+      
+      <!-- شاشة الإعداد والتهيئة -->
+      <div class="demo-screen" id="demoConfigScreen">
+        <h3 class="demo-screen__title">دردش مع شريكنا «علي»</h3>
+        <p class="demo-screen__subtitle">جرّب الخدمة بنفسك وشوف شلون "علي" (شريكنا الافتراضي ومسؤول الأتمتة) يقدر يدير المحادثة ويقنعك بأتمتة عملك.</p>
+        
+        <div class="demo-section">
+          <h4 class="demo-section__label">اختر نوع عملك لتخصيص التجربة:</h4>
+          <div class="demo-templates">
+            <button class="demo-template-btn active" data-template="clinic">
+              <span class="demo-template-btn__icon">🩺</span>
+              <span class="demo-template-btn__name">عيادة طبية / مركز تجميل</span>
+              <span class="demo-template-btn__detail">مواعيد، حجوزات، واستشارات أوتوماتيكية</span>
+            </button>
+            <button class="demo-template-btn" data-template="restaurant">
+              <span class="demo-template-btn__icon">🍔</span>
+              <span class="demo-template-btn__name">مطعم أو كافية</span>
+              <span class="demo-template-btn__detail">طلبات، حجز طاولات، وإجابة مكررة</span>
+            </button>
+            <button class="demo-template-btn" data-template="other">
+              <span class="demo-template-btn__icon">💼</span>
+              <span class="demo-template-btn__name">عمل آخر / شركة تجارية</span>
+              <span class="demo-template-btn__detail">أتمتة خدمة عملاء متكاملة</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="demo-divider">أدخل تفاصيلك للبدء</div>
+
+        <div class="demo-custom-form">
+          <div class="demo-form-group">
+            <label for="visitorName">اسمك الكريم:</label>
+            <input type="text" id="visitorName" placeholder="مثال: د. أحمد" />
+          </div>
+          <div class="demo-form-group">
+            <label for="customBizName">اسم مشروعك / عيادتك:</label>
+            <input type="text" id="customBizName" placeholder="مثال: مجمع البسمة الطبي" />
+          </div>
+        </div>
+
+        <button class="demo-submit-btn" id="startDemoBtn">ابدأ الدردشة مع علي</button>
+      </div>
+
+      <!-- شاشة المحادثة النشطة -->
+      <div class="demo-screen" id="demoChatScreen" style="display: none;">
+        <div class="demo-chat-header">
+          <div class="demo-chat-avatar" id="chatAvatar">ع</div>
+          <div class="demo-chat-meta">
+            <h4 class="demo-chat-name" id="chatBizName">علي — شريك الأتمتة الذكي</h4>
+            <span class="demo-chat-status">نشط الآن 🟢</span>
+          </div>
+        </div>
+        
+        <div class="demo-chat-body" id="demoChatBody">
+          <!-- الرسائل تضاف هنا ديناميكياً -->
+        </div>
+
+        <div class="demo-chat-replies" id="demoQuickReplies">
+          <!-- خيارات الرد السريع تضاف هنا -->
+        </div>
+
+        <div class="demo-chat-footer">
+          <input type="text" class="demo-chat-input" id="demoChatInput" placeholder="اكتب رسالة للزبون..." dir="rtl" />
+          <button class="demo-chat-send" id="demoChatSendBtn" aria-label="إرسال">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- شاشة النجاح وقفل البيعة -->
+      <div class="demo-screen demo-screen--success" id="demoSuccessScreen" style="display: none;">
+        <div class="success-glow">
+          <div class="success-diamond"></div>
+        </div>
+        <h3 class="demo-screen__title">تم حجز الموعد بنجاح! 🎉</h3>
+        <p class="demo-screen__subtitle">شفت السلاسة؟ "علي" (شريكنا الافتراضي) أقنعك، جاوب استفساراتك، وأخذ معلوماتك لحجز مكالمة حقيقية مع "عبود" في ثوانٍ معدودة.</p>
+        
+        <div class="success-stats">
+          <div class="stat-card">
+            <span class="stat-card__val">٣ ثوانٍ</span>
+            <span class="stat-card__lbl">سرعة الاستجابة</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-card__val">١٠٠٪</span>
+            <span class="stat-card__lbl">أتمتة وحجز ذكي</span>
+          </div>
+        </div>
+
+        <div class="demo-success-actions">
+          <button class="demo-submit-btn" id="confirmBookingBtn">تأكيد حجز المكالمة الآن</button>
+          <button class="demo-modal__secondary-btn" id="restartDemoBtn">جرّب تجربة أخرى</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- التذييل -->
+  <footer class="footer">
+    <svg class="footer__stitch" viewBox="0 0 560 24" aria-hidden="true">
+      <g id="stitch-row"></g>
+    </svg>
+    <p class="footer__brand">جاوبني <span class="footer__latin">JAWEBNI</span></p>
+    <p class="footer__copy">© ٢٠٢٦ — كل الحقوق محفوظة</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.min.js"></script>
+  <script src="js/main.js?v=2"></script>
+</body>
+</html>
