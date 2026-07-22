@@ -137,11 +137,11 @@
   <!-- نافذة المحادثة التجريبية (Demo Chat Modal) -->
   <div class="demo-modal" id="demoModal" aria-hidden="true" style="display: none;">
     <div class="demo-modal__backdrop" id="demoModalBackdrop"></div>
-    <div class="demo-modal__card">
+    <div class="demo-modal__card" data-lenis-prevent data-lenis-prevent-touch>
       <button class="demo-modal__close" id="closeDemoModal" aria-label="إغلاق">&times;</button>
       
       <!-- شاشة الإعداد والتهيئة -->
-      <div class="demo-screen" id="demoConfigScreen">
+      <div class="demo-screen" id="demoConfigScreen" data-lenis-prevent data-lenis-prevent-touch>
         <h3 class="demo-screen__title">دردش مع شريكنا «علي»</h3>
         <p class="demo-screen__subtitle">جرّب الخدمة بنفسك وشوف شلون "علي" (شريكنا الافتراضي ومسؤول الأتمتة) يقدر يدير المحادثة ويقنعك بأتمتة عملك.</p>
         
@@ -183,7 +183,7 @@
       </div>
 
       <!-- شاشة المحادثة النشطة -->
-      <div class="demo-screen" id="demoChatScreen" style="display: none;">
+      <div class="demo-screen" id="demoChatScreen" style="display: none;" data-lenis-prevent data-lenis-prevent-touch>
         <div class="demo-chat-header">
           <div class="demo-chat-avatar" id="chatAvatar">ع</div>
           <div class="demo-chat-meta">
@@ -192,7 +192,7 @@
           </div>
         </div>
         
-        <div class="demo-chat-body" id="demoChatBody">
+        <div class="demo-chat-body" id="demoChatBody" data-lenis-prevent data-lenis-prevent-touch>
           <!-- الرسائل تضاف هنا ديناميكياً -->
         </div>
 
@@ -212,7 +212,7 @@
       </div>
 
       <!-- شاشة النجاح وقفل البيعة -->
-      <div class="demo-screen demo-screen--success" id="demoSuccessScreen" style="display: none;">
+      <div class="demo-screen demo-screen--success" id="demoSuccessScreen" style="display: none;" data-lenis-prevent data-lenis-prevent-touch>
         <div class="success-glow">
           <div class="success-diamond"></div>
         </div>

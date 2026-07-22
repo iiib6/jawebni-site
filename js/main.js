@@ -450,6 +450,14 @@ if (document.fonts && document.fonts.ready) {
   const chatAvatar = document.getElementById("chatAvatar");
   
   const visitorNameInput = document.getElementById("visitorName");
+
+  // Prevent Lenis / iOS body scroll lock from swallowing modal touch scrolling
+  const demoModalCard = document.querySelector(".demo-modal__card");
+  if (demoModalCard) {
+    demoModalCard.addEventListener("touchmove", (e) => {
+      e.stopPropagation();
+    }, { passive: true });
+  }
   const customBizNameInput = document.getElementById("customBizName");
   const templateButtons = document.querySelectorAll(".demo-template-btn");
 
