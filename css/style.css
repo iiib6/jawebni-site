@@ -74,6 +74,24 @@ body {
   text-decoration: none;
 }
 
+.nav__actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav__link {
+  font-weight: 400;
+  font-size: .92rem;
+  color: var(--green-royal);
+  text-decoration: none;
+  transition: color .2s ease;
+}
+
+.nav__link:hover {
+  color: var(--olive);
+}
+
 .nav__cta {
   font-weight: 400;
   font-size: .92rem;
@@ -463,6 +481,270 @@ body {
   max-width: 48ch;
 }
 
+/* ---------- خطط الاشتراكات ---------- */
+
+.pricing {
+  position: relative;
+  background: var(--green-royal);
+  padding: clamp(6rem, 14vh, 10rem) 0;
+  color: var(--cream);
+  overflow: hidden;
+}
+
+.pricing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(68, 81, 56, 0.35), transparent 70%),
+    radial-gradient(100% 80% at 50% 100%, rgba(27, 36, 30, 0.6), transparent 80%);
+  pointer-events: none;
+}
+
+.pricing .container {
+  position: relative;
+  z-index: 1;
+}
+
+.pricing__header {
+  text-align: center;
+  margin-bottom: clamp(3rem, 7vh, 5rem);
+}
+
+.pricing__header .section-title {
+  margin-bottom: 0.8rem;
+}
+
+.pricing__subtitle {
+  font-size: clamp(0.98rem, 1.8vw, 1.16rem);
+  color: var(--sand-soft);
+  max-width: 50ch;
+  margin-inline: auto;
+}
+
+.pricing__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+.pricing-card {
+  position: relative;
+  background: color-mix(in srgb, var(--green-night) 65%, transparent);
+  border: 1px solid rgba(196, 163, 90, 0.2);
+  border-radius: 20px;
+  padding: 1.6rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s ease, box-shadow 0.35s ease;
+}
+
+.pricing-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(196, 163, 90, 0.45);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35), 0 0 20px rgba(196, 163, 90, 0.1);
+}
+
+.pricing-card--featured {
+  background: color-mix(in srgb, var(--green-royal) 85%, var(--green-night));
+  border: 2px solid var(--gold);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(196, 163, 90, 0.18);
+}
+
+.pricing-card--featured:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5), 0 0 40px rgba(196, 163, 90, 0.25);
+}
+
+.pricing-card__badge {
+  position: absolute;
+  top: -13px;
+  right: 50%;
+  transform: translateX(50%);
+  background: var(--gold);
+  color: var(--green-night);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 0.25rem 1rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(196, 163, 90, 0.4);
+  white-space: nowrap;
+}
+
+.pricing-card__icon-badge {
+  display: block;
+  font-size: 1.8rem;
+  margin-bottom: 0.4rem;
+  line-height: 1;
+}
+
+.pricing-card__header {
+  text-align: center;
+  padding-bottom: 0.6rem;
+}
+
+.pricing-card__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.35rem, 2.2vw, 1.65rem);
+  color: var(--cream);
+}
+
+.pricing-card--featured .pricing-card__title {
+  color: var(--gold);
+}
+
+.pricing-card__tagline {
+  font-size: 0.84rem;
+  color: var(--sand-soft);
+  margin-top: 0.2rem;
+  opacity: 0.85;
+}
+
+.pricing-card__price {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.pricing-card__amount {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 3.8vw, 2.7rem);
+  color: var(--gold);
+  line-height: 1;
+}
+
+.pricing-card__currency {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--sand);
+}
+
+.pricing-card__period {
+  font-size: 0.82rem;
+  color: var(--sand-soft);
+  opacity: 0.8;
+}
+
+/* زر عرض/إخفاء التفاصيل */
+.pricing-card__toggle {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(196, 163, 90, 0.3);
+  border-radius: 12px;
+  color: var(--sand);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 400;
+  padding: 0.45rem 0.9rem;
+  margin: 0.9rem auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  width: fit-content;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.pricing-card__toggle:hover {
+  background: rgba(196, 163, 90, 0.12);
+  border-color: var(--gold);
+  color: var(--cream);
+}
+
+.toggle-icon {
+  transition: transform 0.3s ease;
+}
+
+.pricing-card.is-expanded .toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* المنطقة القابلة للطي والتوسيع */
+.pricing-card__details {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease;
+  margin-top: 0;
+}
+
+.pricing-card.is-expanded .pricing-card__details {
+  max-height: 500px;
+  opacity: 1;
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed rgba(196, 163, 90, 0.2);
+}
+
+.pricing-card__features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.pricing-card__features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.86rem;
+  color: var(--sand-soft);
+  line-height: 1.5;
+}
+
+.pricing-card__features li strong {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.pricing-card__action {
+  margin-top: 1.2rem;
+}
+
+.pricing-card__btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--cream);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 0.75rem 1.2rem;
+  text-decoration: none;
+  transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
+}
+
+.pricing-card__btn:hover,
+.pricing-card__btn:focus-visible {
+  background-color: var(--gold);
+  color: var(--green-night);
+  transform: translateY(-2px);
+}
+
+.pricing-card__btn--gold {
+  background: var(--gold);
+  color: var(--green-night);
+  border-color: var(--gold);
+}
+
+.pricing-card__btn--gold:hover,
+.pricing-card__btn--gold:focus-visible {
+  background-color: var(--cream);
+  color: var(--green-royal);
+}
+
 /* ---------- الدعوة ---------- */
 
 .cta {
@@ -571,6 +853,7 @@ body {
 
   .feature { grid-template-columns: 1fr; gap: .4rem; }
 
+  .pricing__grid { grid-template-columns: 1fr; gap: 2.5rem; }
 }
 
 /* ---------- نافذة المحادثة التجريبية ---------- */

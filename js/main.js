@@ -122,8 +122,8 @@ mm.add(
       scrollTrigger: {
         trigger: ".hero",
         start: "top top",
-        end: "+=380%",
-        scrub: 1,
+        end: "+=110%",
+        scrub: 0.15,
         pin: ".hero__stage",
         anticipatePin: 1,
       },
@@ -198,7 +198,7 @@ if (reduceMotion) {
   gsap.set(stitchEls, { scale: 1, opacity: 1 });
 } else {
   /* التمرير الناعم */
-  window.lenis = new Lenis({ duration: 1.15, smoothWheel: true });
+  window.lenis = new Lenis({ duration: 0.85, smoothWheel: true });
   window.lenis.on("scroll", ScrollTrigger.update);
   gsap.ticker.add((time) => window.lenis.raf(time * 1000));
   gsap.ticker.lagSmoothing(0);
@@ -342,6 +342,25 @@ if (reduceMotion) {
     );
   });
 
+  /* بطاقات الاشتراكات */
+  gsap.utils.toArray(".pricing-card").forEach((card, i) => {
+    gsap.fromTo(
+      card,
+      { y: 50, autoAlpha: 0 },
+      {
+        y: 0,
+        autoAlpha: 1,
+        ease: "power1.out",
+        scrollTrigger: {
+          trigger: ".pricing__grid",
+          start: `top ${82 - i * 5}%`,
+          end: `top ${55 - i * 5}%`,
+          scrub: 0.8,
+        },
+      }
+    );
+  });
+
   /* الحرف الشاهد يتنفّس مع التمرير */
   gsap.utils.toArray([".features__witness", ".cta__witness"]).forEach((el) => {
     gsap.fromTo(
@@ -461,8 +480,24 @@ if (document.fonts && document.fonts.ready) {
   const customBizNameInput = document.getElementById("customBizName");
   const templateButtons = document.querySelectorAll(".demo-template-btn");
 
+  // Toggle Pricing Card Details
+  document.querySelectorAll(".pricing-card__toggle").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const card = btn.closest(".pricing-card");
+      if (!card) return;
+      const isExpanded = card.classList.toggle("is-expanded");
+      btn.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      const toggleText = btn.querySelector(".toggle-text");
+      if (toggleText) {
+        toggleText.textContent = isExpanded ? "إخفاء التفاصيل" : "عرض التفاصيل";
+      }
+      if (window.ScrollTrigger) ScrollTrigger.refresh();
+    });
+  });
+
   // Event Listeners for Opening Modal
-  const openTriggers = document.querySelectorAll('.nav__cta, .cta__button');
+  const openTriggers = document.querySelectorAll('.nav__cta, .cta__button, .pricing-card__btn');
   openTriggers.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
