@@ -122,8 +122,8 @@ mm.add(
       scrollTrigger: {
         trigger: ".hero",
         start: "top top",
-        end: "+=110%",
-        scrub: 0.15,
+        end: "+=45%",
+        scrub: 0.1,
         pin: ".hero__stage",
         anticipatePin: 1,
       },
