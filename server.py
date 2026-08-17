@@ -267,6 +267,18 @@ def send_lead_email(lead_data):
     </html>
     """
     
+    # 1. Primary Method: Google Apps Script Webhook (100% reliable on Render, uses port 443)
+    GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyySbR7dOIUfLlF_xoIaxiAUCZvzUAarzA9FBDV2oS04Jb7S4f6g1un_OMeEtIYYskC/exec"
+    try:
+        import requests
+        res = requests.post(GOOGLE_WEBHOOK_URL, json=lead_data, timeout=12)
+        if res.status_code == 200:
+            safe_print(f"Lead email successfully dispatched via Google Apps Script Webhook to {ADMIN_NOTIFICATION_EMAIL}")
+            return
+    except Exception as e:
+        safe_print(f"Google Webhook attempt failed: {str(e)}, trying direct SMTP fallback...", file=sys.stderr)
+
+    # 2. Secondary Method: SMTP Fallback
     if smtp_user and smtp_pass:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"🔥 حجز جديد في جاوبني: {name} - {phone}"
@@ -277,7 +289,6 @@ def send_lead_email(lead_data):
         msg.attach(part)
         
         sent = False
-        # Try SSL on port 465 first
         try:
             with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
                 server.login(smtp_user, smtp_pass)
@@ -287,7 +298,6 @@ def send_lead_email(lead_data):
         except Exception as e:
             safe_print(f"SSL (465) attempt failed: {str(e)}, trying TLS (587)...", file=sys.stderr)
             
-        # Fallback to TLS on port 587
         if not sent:
             try:
                 server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)

@@ -585,7 +585,7 @@ if (document.fonts && document.fonts.ready) {
   if (demoModalBackdrop) demoModalBackdrop.addEventListener("click", closeModal);
   if (finishBookingBtn) finishBookingBtn.addEventListener("click", closeModal);
 
-  // Direct Notification Dispatcher (Server DB + Direct HTTPS Email Delivery)
+  // Direct Notification Dispatcher (Server DB + Direct Google Apps Script Webhook)
   function dispatchNotification(leadData) {
     // 1. Send to server backend
     fetch("/api/leads", {
@@ -594,24 +594,15 @@ if (document.fonts && document.fonts.ready) {
       body: JSON.stringify(leadData)
     }).catch(err => console.log("Server leads log:", err));
 
-    // 2. Direct HTTPS Email Dispatch (bypasses Render SMTP port restrictions)
-    fetch("https://formsubmit.co/ajax/aboody.alfaloje20@gmail.com", {
+    // 2. Direct Google Apps Script Webhook (Instant Gmail delivery)
+    fetch("https://script.google.com/macros/s/AKfycbyySbR7dOIUfLlF_xoIaxiAUCZvzUAarzA9FBDV2oS04Jb7S4f6g1un_OMeEtIYYskC/exec", {
       method: "POST",
+      mode: "no-cors",
       headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        "الاسم الثلاثي": leadData.name,
-        "رقم الهاتف": leadData.phone,
-        "اسم المشروع": leadData.business_name || "غير محدد",
-        "الخطة المطلوبة": leadData.business_type || "استشارة عامة",
-        "_subject": `🔥 حجز جديد في جاوبني: ${leadData.name} (${leadData.phone})`,
-        "_template": "table"
-      })
-    }).then(res => res.json())
-      .then(d => console.log("Direct Email Dispatch Status:", d))
-      .catch(err => console.log("Direct Email Dispatch Error:", err));
+      body: JSON.stringify(leadData)
+    }).catch(err => console.log("Google Apps Script Error:", err));
   }
 
   // Direct Booking Form Submission
