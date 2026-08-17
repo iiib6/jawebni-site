@@ -581,9 +581,32 @@ if (document.fonts && document.fonts.ready) {
     gsap.to(".demo-modal__card", { y: 20, scale: 0.96, duration: 0.3, ease: "power2.in" });
   }
 
+  const successGoToBookingBtn = document.getElementById("successGoToBookingBtn");
+
+  function goToBookingFromDemo() {
+    switchTab("booking");
+    if (bookFullNameInput && activeBiz.visitorName && activeBiz.visitorName !== "صديقي") {
+      bookFullNameInput.value = activeBiz.visitorName;
+    }
+    if (bookBizNameInput && activeBiz.name && activeBiz.name !== "مشروعك") {
+      bookBizNameInput.value = activeBiz.name;
+    }
+    if (bookPhoneInput && activeBiz.capturedPhone && !bookPhoneInput.value) {
+      bookPhoneInput.value = activeBiz.capturedPhone;
+    }
+    setTimeout(() => {
+      if (bookPhoneInput && !bookPhoneInput.value) {
+        bookPhoneInput.focus();
+      } else if (bookFullNameInput && !bookFullNameInput.value) {
+        bookFullNameInput.focus();
+      }
+    }, 250);
+  }
+
   if (closeDemoModal) closeDemoModal.addEventListener("click", closeModal);
   if (demoModalBackdrop) demoModalBackdrop.addEventListener("click", closeModal);
   if (finishBookingBtn) finishBookingBtn.addEventListener("click", closeModal);
+  if (successGoToBookingBtn) successGoToBookingBtn.addEventListener("click", goToBookingFromDemo);
 
   // Direct Notification Dispatcher (Server DB + Google Apps Script Webhook)
   function dispatchNotification(leadData) {
@@ -934,9 +957,25 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
           const cleanReply = replyText.replace(successRegex, "").trim();
           addMessage(cleanReply);
           submitLeadToServer();
+
+          // Add immediate Booking CTA card inside the chat
+          const ctaCard = document.createElement("div");
+          ctaCard.className = "chat-booking-cta";
+          ctaCard.innerHTML = `
+            <p>🎉 <strong>أعجبتك سرعة وذكاء الرد؟</strong><br>احجز باقتك الآن لنقوم ببرمجة وربط هذا النظام برقم واتساب مشروعك فوراً!</p>
+            <button class="chat-booking-cta-btn" id="chatGoToBookingBtn">📅 احجز باقتك وملء البيانات الآن 🚀</button>
+          `;
+          demoChatBody.appendChild(ctaCard);
+          demoChatBody.scrollTop = demoChatBody.scrollHeight;
+
+          const chatBtn = document.getElementById("chatGoToBookingBtn");
+          if (chatBtn) {
+            chatBtn.addEventListener("click", goToBookingFromDemo);
+          }
+
           setTimeout(() => {
             showScreen("demoSuccessScreen");
-          }, 2500);
+          }, 4000);
         } else {
           addMessage(replyText);
         }
@@ -1019,6 +1058,9 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
       }
     }
     
+    if (phone) activeBiz.capturedPhone = phone;
+    if (name && name !== "صديقي") activeBiz.capturedName = name;
+
     const payload = {
       name: name || activeBiz.visitorName || "صديقي",
       phone: phone || "غير محدد في الشات",

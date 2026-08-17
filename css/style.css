@@ -1484,12 +1484,49 @@ body {
   opacity: 0.85;
 }
 
+.chat-booking-cta {
+  background: linear-gradient(135deg, rgba(196, 163, 90, 0.15), rgba(34, 57, 43, 0.5));
+  border: 1px solid rgba(196, 163, 90, 0.4);
+  border-radius: 14px;
+  padding: 1.1rem;
+  margin: 1rem 0 0.5rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.chat-booking-cta p {
+  font-size: 0.92rem;
+  color: var(--sand-soft);
+  margin-bottom: 0.85rem;
+  line-height: 1.5;
+}
+
+.chat-booking-cta-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #C4A35A, #b39248);
+  color: #0d1a12;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.85rem 1.2rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 15px rgba(196, 163, 90, 0.3);
+}
+
+.chat-booking-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(196, 163, 90, 0.45);
+}
+
 .demo-success-actions {
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 320px;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 /* استجابة الموبايل للمودال */
