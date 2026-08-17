@@ -70,6 +70,47 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 def index():
     return app.send_static_file('index.html')
 
+# Service Account / Vertex AI Authentication setup
+SA_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "service_account.json")
+creds = None
+sa_data = None
+
+if os.path.exists(SA_PATH):
+    try:
+        with open(SA_PATH, "r", encoding="utf-8") as f:
+            sa_data = json.load(f)
+    except Exception as e:
+        print("Failed to read service_account.json:", str(e), file=sys.stderr)
+elif os.environ.get("GCP_SERVICE_ACCOUNT"):
+    try:
+        sa_data = json.loads(os.environ.get("GCP_SERVICE_ACCOUNT"))
+    except Exception as e:
+        print("Failed to parse GCP_SERVICE_ACCOUNT env var:", str(e), file=sys.stderr)
+
+if sa_data:
+    try:
+        from google.oauth2 import service_account
+        import google.auth.transport.requests
+        import requests
+        SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
+        creds = service_account.Credentials.from_service_account_info(sa_data, scopes=SCOPES)
+        print("Service account loaded successfully.")
+    except Exception as e:
+        print("Failed to initialize service account:", str(e), file=sys.stderr)
+
+def get_sa_token():
+    global creds
+    if creds:
+        try:
+            import google.auth.transport.requests
+            auth_req = google.auth.transport.requests.Request()
+            if not creds.valid:
+                creds.refresh(auth_req)
+            return creds.token
+        except Exception as e:
+            print("Failed to refresh token:", str(e), file=sys.stderr)
+    return None
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     # 1. Rate limiting check
@@ -79,18 +120,7 @@ def chat():
             "error": "لقد تجاوزت حد الطلبات المسموح به. يرجى الانتظار دقيقة قبل المحاولة مجدداً."
         }), 429
 
-    # 2. Check API Key configuration
-    if not API_KEY:
-        return jsonify({"error": "GEMINI_API_KEY is not configured in .env file."}), 500
-
-    # 3. Parse input and call Gemini with fallback models
     client_payload = request.json or {}
-    
-    models = [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-lite"
-    ]
     
     req_payload = {
         "contents": client_payload.get("contents", []),
@@ -100,45 +130,71 @@ def chat():
             "maxOutputTokens": 2048
         })
     }
-    
-    all_429 = True
-    for model in models:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={API_KEY}"
-            
-            req_data = json.dumps(req_payload).encode('utf-8')
-            req = urllib.request.Request(
-                url, 
-                data=req_data, 
-                headers={"Content-Type": "application/json"}, 
-                method="POST"
-            )
-            
-            with urllib.request.urlopen(req) as response:
-                res_body = response.read().decode('utf-8')
-                result = json.loads(res_body)
-                result["_model_used"] = model
-                return jsonify(result)
+
+    # 2. Try Service Account with Vertex AI first
+    token = get_sa_token()
+    if token and sa_data:
+        import requests
+        project = sa_data.get("project_id", "gen-lang-client-0148309017")
+        
+        # Vertex AI Model endpoints configuration
+        vertex_models = [
+            ("gemini-3.7-flash", "global"),
+            ("gemini-3.5-flash", "global"),
+            ("gemini-2.5-flash", "us-central1"),
+            ("gemini-2.5-pro", "us-central1")
+        ]
+        
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        
+        for model, location in vertex_models:
+            try:
+                if location == "global":
+                    url = f"https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models/{model}:generateContent"
+                else:
+                    url = f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent"
+                    
+                r = requests.post(url, headers=headers, json=req_payload, timeout=20)
+                if r.status_code == 200:
+                    res_json = r.json()
+                    res_json["_model_used"] = f"Vertex AI: {model}"
+                    return jsonify(res_json)
+                else:
+                    print(f"Vertex AI model {model} failed with status {r.status_code}: {r.text[:200]}", file=sys.stderr)
+            except Exception as e:
+                print(f"Vertex AI request exception for {model}: {str(e)}", file=sys.stderr)
+
+    # 3. Fallback to Gemini API Key if available
+    if API_KEY:
+        models = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite"
+        ]
+        
+        for model in models:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={API_KEY}"
+                req_data = json.dumps(req_payload).encode('utf-8')
+                req = urllib.request.Request(
+                    url, 
+                    data=req_data, 
+                    headers={"Content-Type": "application/json"}, 
+                    method="POST"
+                )
+                with urllib.request.urlopen(req) as response:
+                    res_body = response.read().decode('utf-8')
+                    result = json.loads(res_body)
+                    result["_model_used"] = f"Gemini API: {model}"
+                    return jsonify(result)
+            except Exception as e:
+                print(f"Gemini API model {model} failed: {str(e)}", file=sys.stderr)
+                continue
                 
-        except Exception as e:
-            last_error = e
-            err_body = ""
-            if hasattr(e, "read"):
-                try:
-                    err_body = e.read().decode('utf-8')
-                except:
-                    pass
-            if "429" not in str(e):
-                all_429 = False
-            print(f"Model {model} failed:", str(e), file=sys.stderr)
-            if err_body:
-                print(f"Error body for {model}:", err_body, file=sys.stderr)
-            continue
-    
-    if all_429:
-        return jsonify({"error": "quota_exceeded", "message": "انتهت الحصة اليومية المجانية لمفتاح الـ API. يرجى المحاولة لاحقاً أو استبدال المفتاح."}), 429
-    
-    return jsonify({"error": f"جميع النماذج فشلت. آخر خطأ: {str(last_error)}", "body": err_body if 'err_body' in dir() else ""}), 500
+    return jsonify({"error": "حدث خطأ في معالجة الرد، يرجى المحاولة لاحقاً."}), 500
 
 @app.route('/api/leads', methods=['POST'])
 def save_lead():
