@@ -202,9 +202,19 @@ from email.mime.multipart import MIMEMultipart
 
 ADMIN_NOTIFICATION_EMAIL = "aboody.alfaloje20@gmail.com"
 
+def safe_print(*args, **kwargs):
+    try:
+        print(*args, **kwargs)
+    except Exception:
+        try:
+            msg = " ".join(str(a) for a in args)
+            print(msg.encode("ascii", errors="replace").decode("ascii"), **kwargs)
+        except Exception:
+            pass
+
 def send_lead_email(lead_data):
-    smtp_user = os.environ.get("SMTP_USER")
-    smtp_pass = os.environ.get("SMTP_PASS")
+    smtp_user = os.environ.get("SMTP_USER", "").strip()
+    smtp_pass = os.environ.get("SMTP_PASS", "").strip()
     
     name = lead_data.get("name", "غير محدد")
     phone = lead_data.get("phone", "غير محدد")
@@ -257,32 +267,38 @@ def send_lead_email(lead_data):
     </html>
     """
     
-def safe_print(*args, **kwargs):
-    try:
-        print(*args, **kwargs)
-    except Exception:
-        try:
-            msg = " ".join(str(a) for a in args)
-            print(msg.encode("ascii", errors="replace").decode("ascii"), **kwargs)
-        except Exception:
-            pass
-
     if smtp_user and smtp_pass:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"🔥 حجز جديد في جاوبني: {name} - {phone}"
+        msg["From"] = f"جاوبني <{smtp_user}>"
+        msg["To"] = ADMIN_NOTIFICATION_EMAIL
+        
+        part = MIMEText(html, "html", "utf-8")
+        msg.attach(part)
+        
+        sent = False
+        # Try SSL on port 465 first
         try:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = f"🔥 حجز جديد في جاوبني: {name} - {phone}"
-            msg["From"] = f"جاوبني <{smtp_user}>"
-            msg["To"] = ADMIN_NOTIFICATION_EMAIL
-            
-            part = MIMEText(html, "html", "utf-8")
-            msg.attach(part)
-            
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
                 server.login(smtp_user, smtp_pass)
                 server.sendmail(smtp_user, ADMIN_NOTIFICATION_EMAIL, msg.as_string())
-            safe_print(f"Email notification successfully sent to {ADMIN_NOTIFICATION_EMAIL}")
+            safe_print(f"Email notification successfully sent via SSL (465) to {ADMIN_NOTIFICATION_EMAIL}")
+            sent = True
         except Exception as e:
-            safe_print(f"Failed to send email notification: {str(e)}", file=sys.stderr)
+            safe_print(f"SSL (465) attempt failed: {str(e)}, trying TLS (587)...", file=sys.stderr)
+            
+        # Fallback to TLS on port 587
+        if not sent:
+            try:
+                server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(smtp_user, ADMIN_NOTIFICATION_EMAIL, msg.as_string())
+                server.quit()
+                safe_print(f"Email notification successfully sent via TLS (587) to {ADMIN_NOTIFICATION_EMAIL}")
+                sent = True
+            except Exception as e:
+                safe_print(f"Failed to send email notification on both 465 and 587: {str(e)}", file=sys.stderr)
     else:
         safe_print(f"[Lead Recorded]: Destination: {ADMIN_NOTIFICATION_EMAIL}")
 
