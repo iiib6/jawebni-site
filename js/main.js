@@ -585,24 +585,14 @@ if (document.fonts && document.fonts.ready) {
   if (demoModalBackdrop) demoModalBackdrop.addEventListener("click", closeModal);
   if (finishBookingBtn) finishBookingBtn.addEventListener("click", closeModal);
 
-  // Direct Notification Dispatcher (Server DB + Direct Google Apps Script Webhook)
+  // Direct Notification Dispatcher (Server DB + Google Apps Script Webhook)
   function dispatchNotification(leadData) {
-    // 1. Send to server backend
+    // Send to server backend which saves lead in SQLite and dispatches Google Webhook
     fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(leadData)
     }).catch(err => console.log("Server leads log:", err));
-
-    // 2. Direct Google Apps Script Webhook (Instant Gmail delivery)
-    fetch("https://script.google.com/macros/s/AKfycbyySbR7dOIUfLlF_xoIaxiAUCZvzUAarzA9FBDV2oS04Jb7S4f6g1un_OMeEtIYYskC/exec", {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(leadData)
-    }).catch(err => console.log("Google Apps Script Error:", err));
   }
 
   // Direct Booking Form Submission
