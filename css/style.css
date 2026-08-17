@@ -109,6 +109,27 @@ body {
   color: var(--cream);
 }
 
+@media (max-width: 768px) {
+  .nav {
+    padding: 0.65rem 1rem;
+  }
+  .nav__logo {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+  .nav__actions {
+    gap: 0.5rem;
+  }
+  .nav__link {
+    display: none;
+  }
+  .nav__cta {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.85rem;
+    white-space: nowrap;
+  }
+}
+
 /* ---------- المشهد الافتتاحي ---------- */
 
 .hero {
