@@ -956,14 +956,14 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
         if (hasSuccess) {
           const cleanReply = replyText.replace(successRegex, "").trim();
           addMessage(cleanReply);
-          submitLeadToServer();
+          extractLeadInfoForBooking();
 
           // Add immediate Booking CTA card inside the chat
           const ctaCard = document.createElement("div");
           ctaCard.className = "chat-booking-cta";
           ctaCard.innerHTML = `
-            <p>🎉 <strong>أعجبتك سرعة وذكاء الرد؟</strong><br>احجز باقتك الآن لنقوم ببرمجة وربط هذا النظام برقم واتساب مشروعك فوراً!</p>
-            <button class="chat-booking-cta-btn" id="chatGoToBookingBtn">📅 احجز باقتك وملء البيانات الآن 🚀</button>
+            <p>🎉 <strong>أعجبتك سرعة وذكاء الرد؟</strong><br>احجز باقتك الآن لنقوم ببرمجة وتفعيل هذا النظام برقم واتساب مشروعك فوراً!</p>
+            <button class="chat-booking-cta-btn" id="chatGoToBookingBtn">📅 احجز باقتك وسجل معلوماتك الآن 🚀</button>
           `;
           demoChatBody.appendChild(ctaCard);
           demoChatBody.scrollTop = demoChatBody.scrollHeight;
@@ -972,10 +972,6 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
           if (chatBtn) {
             chatBtn.addEventListener("click", goToBookingFromDemo);
           }
-
-          setTimeout(() => {
-            showScreen("demoSuccessScreen");
-          }, 4000);
         } else {
           addMessage(replyText);
         }
@@ -1000,8 +996,8 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
     });
   }
 
-    // Extract and submit captured lead details from chat logs to local database
-  function submitLeadToServer() {
+  // Helper to extract visitor info from chat strictly for pre-filling the booking form (NO emails sent here)
+  function extractLeadInfoForBooking() {
     let email = "";
     let phone = "";
     let name = activeBiz.visitorName;
@@ -1034,25 +1030,9 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
         
         // 3. Extract name if we haven't found a customized one yet
         if (name === activeBiz.visitorName || name === "صديقي") {
-          // Check for explicit markers: "الاسم: ..." or "اسمي ..."
           const explicitMatch = text.match(/(?:الاسم|اسمي)\s*[:هو]*\s*([\u0600-\u06FFa-zA-Z\s]{4,40})/);
           if (explicitMatch) {
             name = explicitMatch[1].trim();
-          } else {
-            // Split by newlines or commas to check separate lines
-            const lines = text.split(/[\n,，|]/);
-            for (let part of lines) {
-              part = part.trim();
-              const isEmail = part.includes("@");
-              const isPhone = part.match(/\d/g) && part.match(/\d/g).length >= 8;
-              const isLabel = part.match(/(?:الهاتف|الايميل|البريد|التلفون|رقم)/);
-              if (part && !isEmail && !isPhone && !isLabel && part.length >= 4 && part.length <= 40) {
-                if (part.match(/[\u0600-\u06FFa-zA-Z]/)) {
-                  name = part.replace(/^(الاسم|اسمي)\s*[:هو]*\s*/, "").trim();
-                  break;
-                }
-              }
-            }
           }
         }
       }
@@ -1060,16 +1040,6 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
     
     if (phone) activeBiz.capturedPhone = phone;
     if (name && name !== "صديقي") activeBiz.capturedName = name;
-
-    const payload = {
-      name: name || activeBiz.visitorName || "صديقي",
-      phone: phone || "غير محدد في الشات",
-      email: email || "غير محدد في الشات",
-      business_name: activeBiz.name,
-      business_type: activeBiz.bizType
-    };
-    
-    dispatchNotification(payload);
   }
 
   // Send via input field
