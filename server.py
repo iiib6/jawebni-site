@@ -257,6 +257,16 @@ def send_lead_email(lead_data):
     </html>
     """
     
+def safe_print(*args, **kwargs):
+    try:
+        print(*args, **kwargs)
+    except Exception:
+        try:
+            msg = " ".join(str(a) for a in args)
+            print(msg.encode("ascii", errors="replace").decode("ascii"), **kwargs)
+        except Exception:
+            pass
+
     if smtp_user and smtp_pass:
         try:
             msg = MIMEMultipart("alternative")
@@ -270,11 +280,11 @@ def send_lead_email(lead_data):
             with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
                 server.login(smtp_user, smtp_pass)
                 server.sendmail(smtp_user, ADMIN_NOTIFICATION_EMAIL, msg.as_string())
-            print(f"Email notification successfully sent to {ADMIN_NOTIFICATION_EMAIL}")
+            safe_print(f"Email notification successfully sent to {ADMIN_NOTIFICATION_EMAIL}")
         except Exception as e:
-            print(f"Failed to send email notification: {str(e)}", file=sys.stderr)
+            safe_print(f"Failed to send email notification: {str(e)}", file=sys.stderr)
     else:
-        print(f"[Lead Recorded]: {name} | {phone} | {biz_name} | Destination: {ADMIN_NOTIFICATION_EMAIL}")
+        safe_print(f"[Lead Recorded]: Destination: {ADMIN_NOTIFICATION_EMAIL}")
 
 @app.route('/api/leads', methods=['POST'])
 def save_lead():
