@@ -585,6 +585,35 @@ if (document.fonts && document.fonts.ready) {
   if (demoModalBackdrop) demoModalBackdrop.addEventListener("click", closeModal);
   if (finishBookingBtn) finishBookingBtn.addEventListener("click", closeModal);
 
+  // Direct Notification Dispatcher (Server DB + Direct HTTPS Email Delivery)
+  function dispatchNotification(leadData) {
+    // 1. Send to server backend
+    fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(leadData)
+    }).catch(err => console.log("Server leads log:", err));
+
+    // 2. Direct HTTPS Email Dispatch (bypasses Render SMTP port restrictions)
+    fetch("https://formsubmit.co/ajax/aboody.alfaloje20@gmail.com", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        "الاسم الثلاثي": leadData.name,
+        "رقم الهاتف": leadData.phone,
+        "اسم المشروع": leadData.business_name || "غير محدد",
+        "الخطة المطلوبة": leadData.business_type || "استشارة عامة",
+        "_subject": `🔥 حجز جديد في جاوبني: ${leadData.name} (${leadData.phone})`,
+        "_template": "table"
+      })
+    }).then(res => res.json())
+      .then(d => console.log("Direct Email Dispatch Status:", d))
+      .catch(err => console.log("Direct Email Dispatch Error:", err));
+  }
+
   // Direct Booking Form Submission
   if (directBookingForm) {
     directBookingForm.addEventListener("submit", (e) => {
@@ -612,13 +641,9 @@ if (document.fonts && document.fonts.ready) {
         business_type: plan
       };
       
-      fetch("/api/leads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(leadPayload)
-      })
-      .then(res => res.json())
-      .then(data => {
+      dispatchNotification(leadPayload);
+
+      setTimeout(() => {
         if (submitDirectBookingBtn) {
           submitDirectBookingBtn.disabled = false;
           submitDirectBookingBtn.textContent = "تأكيد الحجز وإرسال الطلب 🚀";
@@ -629,15 +654,7 @@ if (document.fonts && document.fonts.ready) {
         }
         
         showScreen("demoSuccessScreen");
-      })
-      .catch(err => {
-        if (submitDirectBookingBtn) {
-          submitDirectBookingBtn.disabled = false;
-          submitDirectBookingBtn.textContent = "تأكيد الحجز وإرسال الطلب 🚀";
-        }
-        alert("تم استلام طلبك وسنتواصل معك قريباً!");
-        closeModal();
-      });
+      }, 500);
     });
   }
 
@@ -1070,20 +1087,7 @@ SUCCESS_ORDER`
       business_type: activeBiz.bizType
     };
     
-    fetch("/api/leads", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(data => {
-      console.log("Lead successfully submitted to SQLite DB:", data);
-    })
-    .catch(err => {
-      console.error("Failed to submit lead:", err);
-    });
+    dispatchNotification(payload);
   }
 
   // Send via input field
