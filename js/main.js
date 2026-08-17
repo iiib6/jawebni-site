@@ -456,9 +456,22 @@ if (document.fonts && document.fonts.ready) {
   const startDemoBtn = document.getElementById("startDemoBtn");
   const restartDemoBtns = document.querySelectorAll("#restartDemoBtn");
   
+  const directBookingScreen = document.getElementById("directBookingScreen");
   const demoConfigScreen = document.getElementById("demoConfigScreen");
   const demoChatScreen = document.getElementById("demoChatScreen");
   const demoSuccessScreen = document.getElementById("demoSuccessScreen");
+  
+  const tabBookingBtn = document.getElementById("tabBookingBtn");
+  const tabDemoBtn = document.getElementById("tabDemoBtn");
+  
+  const directBookingForm = document.getElementById("directBookingForm");
+  const bookFullNameInput = document.getElementById("bookFullName");
+  const bookPhoneInput = document.getElementById("bookPhone");
+  const bookBizNameInput = document.getElementById("bookBizName");
+  const bookPlanSelect = document.getElementById("bookPlanSelect");
+  const submitDirectBookingBtn = document.getElementById("submitDirectBookingBtn");
+  const finishBookingBtn = document.getElementById("finishBookingBtn");
+  const successScreenMsg = document.getElementById("successScreenMsg");
   
   const demoChatBody = document.getElementById("demoChatBody");
   const demoQuickReplies = document.getElementById("demoQuickReplies");
@@ -469,6 +482,8 @@ if (document.fonts && document.fonts.ready) {
   const chatAvatar = document.getElementById("chatAvatar");
   
   const visitorNameInput = document.getElementById("visitorName");
+  const customBizNameInput = document.getElementById("customBizName");
+  const templateButtons = document.querySelectorAll(".demo-template-btn");
 
   // Prevent Lenis / iOS body scroll lock from swallowing modal touch scrolling
   const demoModalCard = document.querySelector(".demo-modal__card");
@@ -477,8 +492,6 @@ if (document.fonts && document.fonts.ready) {
       e.stopPropagation();
     }, { passive: true });
   }
-  const customBizNameInput = document.getElementById("customBizName");
-  const templateButtons = document.querySelectorAll(".demo-template-btn");
 
   // Toggle Pricing Card Details
   document.querySelectorAll(".pricing-card__toggle").forEach(btn => {
@@ -496,16 +509,49 @@ if (document.fonts && document.fonts.ready) {
     });
   });
 
+  // Tab switching logic
+  function switchTab(targetTab) {
+    if (tabBookingBtn && tabDemoBtn) {
+      tabBookingBtn.classList.toggle("active", targetTab === "booking");
+      tabDemoBtn.classList.toggle("active", targetTab === "demo");
+    }
+    
+    if (targetTab === "booking") {
+      showScreen("directBookingScreen");
+    } else {
+      showScreen("demoConfigScreen");
+    }
+  }
+
+  if (tabBookingBtn) tabBookingBtn.addEventListener("click", () => switchTab("booking"));
+  if (tabDemoBtn) tabDemoBtn.addEventListener("click", () => switchTab("demo"));
+
   // Event Listeners for Opening Modal
-  const openTriggers = document.querySelectorAll('.nav__cta, .cta__button, .pricing-card__btn');
-  openTriggers.forEach(btn => {
+  document.querySelectorAll('.nav__cta, .cta__button').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      openModal();
+      openModal("booking");
     });
   });
 
-  function openModal() {
+  document.querySelectorAll('.pricing-card__btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const card = btn.closest('.pricing-card');
+      const planTitle = card ? card.querySelector('.pricing-card__title')?.textContent?.trim() : '';
+      
+      let matchedValue = "خطة النمو (89,000 د.ع)";
+      if (planTitle && planTitle.includes("البداية")) matchedValue = "خطة البداية (49,000 د.ع)";
+      else if (planTitle && planTitle.includes("النخبة")) matchedValue = "خطة النخبة (149,000 د.ع)";
+      
+      if (bookPlanSelect) {
+        bookPlanSelect.value = matchedValue;
+      }
+      openModal("booking");
+    });
+  });
+
+  function openModal(initialTab = "booking") {
     demoModal.style.display = "flex";
     document.body.style.overflow = "hidden";
     if (window.lenis) window.lenis.stop();
@@ -521,7 +567,7 @@ if (document.fonts && document.fonts.ready) {
     gsap.to(demoModal, { opacity: 1, duration: 0.35, ease: "power2.out" });
     gsap.to(".demo-modal__card", { y: 0, scale: 1, duration: 0.45, ease: "back.out(1.2)" });
     
-    showScreen("demoConfigScreen");
+    switchTab(initialTab);
     resetForm();
   }
 
@@ -537,37 +583,77 @@ if (document.fonts && document.fonts.ready) {
 
   if (closeDemoModal) closeDemoModal.addEventListener("click", closeModal);
   if (demoModalBackdrop) demoModalBackdrop.addEventListener("click", closeModal);
+  if (finishBookingBtn) finishBookingBtn.addEventListener("click", closeModal);
 
-  // Escape key to close modal (#14)
+  // Direct Booking Form Submission
+  if (directBookingForm) {
+    directBookingForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      
+      const fullName = bookFullNameInput ? bookFullNameInput.value.trim() : "";
+      const phone = bookPhoneInput ? bookPhoneInput.value.trim() : "";
+      const bizName = bookBizNameInput ? bookBizNameInput.value.trim() : "";
+      const plan = bookPlanSelect ? bookPlanSelect.value : "خطة النمو (89,000 د.ع)";
+      
+      if (!fullName || !phone) {
+        alert("الرجاء إدخال الاسم الثلاثي ورقم الهاتف للتواصل.");
+        return;
+      }
+      
+      if (submitDirectBookingBtn) {
+        submitDirectBookingBtn.disabled = true;
+        submitDirectBookingBtn.textContent = "جاري إرسال الحجز...";
+      }
+      
+      const leadPayload = {
+        name: fullName,
+        phone: phone,
+        business_name: bizName || "غير محدد",
+        business_type: plan
+      };
+      
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(leadPayload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (submitDirectBookingBtn) {
+          submitDirectBookingBtn.disabled = false;
+          submitDirectBookingBtn.textContent = "تأكيد الحجز وإرسال الطلب 🚀";
+        }
+        
+        if (successScreenMsg) {
+          successScreenMsg.innerHTML = `أهلاً بك يا <strong>${fullName}</strong>! تم تسجيل طلبك بنجاح للخطة (<strong>${plan}</strong>).<br>تم إرسال تفاصيلك لفريقنا وسنتواصل معك عبر الواتساب على الرقم (<strong>${phone}</strong>) فوراً لتفعيل النظام لنشاطك.`;
+        }
+        
+        showScreen("demoSuccessScreen");
+      })
+      .catch(err => {
+        if (submitDirectBookingBtn) {
+          submitDirectBookingBtn.disabled = false;
+          submitDirectBookingBtn.textContent = "تأكيد الحجز وإرسال الطلب 🚀";
+        }
+        alert("تم استلام طلبك وسنتواصل معك قريباً!");
+        closeModal();
+      });
+    });
+  }
+
+  // Escape key to close modal
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && demoModal.classList.contains("active")) {
       closeModal();
     }
   });
 
-  // Focus trap inside modal (#8)
-  if (demoModal) {
-    demoModal.addEventListener("keydown", (e) => {
-      if (e.key !== "Tab" || !demoModal.classList.contains("active")) return;
-      const focusable = demoModal.querySelectorAll(
-        'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-      } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    });
-  }
-
   // Switch Screen Helper
   function showScreen(screenId) {
-    demoConfigScreen.style.display = "none";
-    demoChatScreen.style.display = "none";
-    demoSuccessScreen.style.display = "none";
+    if (directBookingScreen) directBookingScreen.style.display = "none";
+    if (demoConfigScreen) demoConfigScreen.style.display = "none";
+    if (demoChatScreen) demoChatScreen.style.display = "none";
+    if (demoSuccessScreen) demoSuccessScreen.style.display = "none";
     
     const screen = document.getElementById(screenId);
     if (screen) screen.style.display = "flex";
@@ -577,6 +663,9 @@ if (document.fonts && document.fonts.ready) {
   function resetForm() {
     if (visitorNameInput) visitorNameInput.value = "";
     if (customBizNameInput) customBizNameInput.value = "";
+    if (bookFullNameInput) bookFullNameInput.value = "";
+    if (bookPhoneInput) bookPhoneInput.value = "";
+    if (bookBizNameInput) bookBizNameInput.value = "";
     isWaitingForResponse = false;
     if (startDemoBtn) {
       startDemoBtn.disabled = false;

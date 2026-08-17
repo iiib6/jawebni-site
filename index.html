@@ -310,8 +310,49 @@
     <div class="demo-modal__card" data-lenis-prevent data-lenis-prevent-touch>
       <button class="demo-modal__close" id="closeDemoModal" aria-label="إغلاق">&times;</button>
       
-      <!-- شاشة الإعداد والتهيئة -->
-      <div class="demo-screen" id="demoConfigScreen" data-lenis-prevent data-lenis-prevent-touch>
+      <!-- تبويبات النافذة: حجز مباشر أو تجربة تفاعلية -->
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab active" id="tabBookingBtn">📅 حجز اشتراك وتواصل</button>
+        <button type="button" class="modal-tab" id="tabDemoBtn">💬 جرّب «علي» لايف</button>
+      </div>
+
+      <!-- 1. شاشة الحجز المباشر -->
+      <div class="demo-screen" id="directBookingScreen" data-lenis-prevent data-lenis-prevent-touch>
+        <h3 class="demo-screen__title">احجز نظام «جاوبني» لعملك</h3>
+        <p class="demo-screen__subtitle">أدخل بياناتك وسيتواصل معك فريقنا مباشرة عبر الهاتف أو الواتساب لتشغيل موظفك الذكي وتدريبه على نشاطك.</p>
+        
+        <form id="directBookingForm" class="demo-custom-form" onsubmit="return false;">
+          <div class="demo-form-group">
+            <label for="bookFullName">الاسم الثلاثي: <span style="color:var(--gold)">*</span></label>
+            <input type="text" id="bookFullName" placeholder="مثال: علي حسن كريم" required />
+          </div>
+
+          <div class="demo-form-group">
+            <label for="bookPhone">رقم الهاتف / الواتساب: <span style="color:var(--gold)">*</span></label>
+            <input type="tel" id="bookPhone" placeholder="مثال: 07801234567" required dir="ltr" style="text-align: right;" />
+          </div>
+
+          <div class="demo-form-group">
+            <label for="bookBizName">اسم المشروع أو النشاط:</label>
+            <input type="text" id="bookBizName" placeholder="مثال: عيادة د. سارة / متجر دبي" />
+          </div>
+
+          <div class="demo-form-group">
+            <label for="bookPlanSelect">الخطة المطلوبة:</label>
+            <select id="bookPlanSelect" class="demo-select">
+              <option value="خطة البداية (49,000 د.ع)">خطة البداية (٤٩,٠٠٠ د.ع / شهرياً)</option>
+              <option value="خطة النمو (89,000 د.ع)" selected>خطة النمو — الأكثر طلباً (٨٩,٠٠٠ د.ع / شهرياً)</option>
+              <option value="خطة النخبة (149,000 د.ع)">خطة النخبة (١٤٩,٠٠٠ د.ع / شهرياً)</option>
+              <option value="استشارة وعرض خاص">استشارة مخصصة / عرض خاص</option>
+            </select>
+          </div>
+
+          <button type="submit" class="demo-submit-btn" id="submitDirectBookingBtn">تأكيد الحجز وإرسال الطلب 🚀</button>
+        </form>
+      </div>
+
+      <!-- 2. شاشة الإعداد والتهيئة لتجربة الشات -->
+      <div class="demo-screen" id="demoConfigScreen" style="display: none;" data-lenis-prevent data-lenis-prevent-touch>
         <h3 class="demo-screen__title">دردش مع شريكنا «علي»</h3>
         <p class="demo-screen__subtitle">جرّب الخدمة بنفسك وشوف شلون "علي" (شريكنا الافتراضي ومسؤول الأتمتة) يقدر يدير المحادثة ويقنعك بأتمتة عملك.</p>
         
@@ -340,8 +381,8 @@
 
         <div class="demo-custom-form">
           <div class="demo-form-group">
-            <label for="visitorName">اسمك الكريم:</label>
-            <input type="text" id="visitorName" placeholder="مثال: د. أحمد" />
+            <label for="visitorName">الاسم الثلاثي: <span style="color:var(--gold)">*</span></label>
+            <input type="text" id="visitorName" placeholder="مثال: أحمد عبد الرضا" />
           </div>
           <div class="demo-form-group">
             <label for="customBizName">اسم مشروعك / عيادتك:</label>
@@ -352,7 +393,7 @@
         <button class="demo-submit-btn" id="startDemoBtn">ابدأ الدردشة مع علي</button>
       </div>
 
-      <!-- شاشة المحادثة النشطة -->
+      <!-- 3. شاشة المحادثة النشطة -->
       <div class="demo-screen" id="demoChatScreen" style="display: none;" data-lenis-prevent data-lenis-prevent-touch>
         <div class="demo-chat-header">
           <div class="demo-chat-avatar" id="chatAvatar">ع</div>
@@ -381,18 +422,18 @@
         </div>
       </div>
 
-      <!-- شاشة النجاح وقفل البيعة -->
+      <!-- 4. شاشة النجاح وقفل البيعة -->
       <div class="demo-screen demo-screen--success" id="demoSuccessScreen" style="display: none;" data-lenis-prevent data-lenis-prevent-touch>
         <div class="success-glow">
           <div class="success-diamond"></div>
         </div>
-        <h3 class="demo-screen__title">تم حجز الموعد بنجاح! 🎉</h3>
-        <p class="demo-screen__subtitle">شفت السلاسة؟ "علي" (شريكنا الافتراضي) أقنعك، جاوب استفساراتك، وأخذ معلوماتك لحجز مكالمة حقيقية مع "عبود" في ثوانٍ معدودة.</p>
+        <h3 class="demo-screen__title">تم استلام طلبك بنجاح! 🎉</h3>
+        <p class="demo-screen__subtitle" id="successScreenMsg">شكراً لتواصلك مع «جاوبني»! تم إرسال معلوماتك وحفظ طلبك، وسيتواصل معك فريقنا خلال ساعات قليلة عبر الواتساب لتجهيز النظام لعملك.</p>
         
         <div class="success-stats">
           <div class="stat-card">
-            <span class="stat-card__val">٣ ثوانٍ</span>
-            <span class="stat-card__lbl">سرعة الاستجابة</span>
+            <span class="stat-card__val">فوري</span>
+            <span class="stat-card__lbl">تأكيد واستلام الطلب</span>
           </div>
           <div class="stat-card">
             <span class="stat-card__val">١٠٠٪</span>
@@ -401,7 +442,7 @@
         </div>
 
         <div class="demo-success-actions">
-          <button class="demo-submit-btn" id="confirmBookingBtn">تأكيد حجز المكالمة الآن</button>
+          <button class="demo-submit-btn" id="finishBookingBtn">تم ومشكورين 👍</button>
           <button class="demo-modal__secondary-btn" id="restartDemoBtn">جرّب تجربة أخرى</button>
         </div>
       </div>
@@ -421,6 +462,6 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=3"></script>
+  <script src="js/main.js?v=4"></script>
 </body>
 </html>

@@ -196,6 +196,86 @@ def chat():
                 
     return jsonify({"error": "حدث خطأ في معالجة الرد، يرجى المحاولة لاحقاً."}), 500
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+ADMIN_NOTIFICATION_EMAIL = "aboody.alfaloje20@gmail.com"
+
+def send_lead_email(lead_data):
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_pass = os.environ.get("SMTP_PASS")
+    
+    name = lead_data.get("name", "غير محدد")
+    phone = lead_data.get("phone", "غير محدد")
+    biz_name = lead_data.get("business_name", "غير محدد")
+    biz_type = lead_data.get("business_type", "استشارة عامة")
+    email = lead_data.get("email", "غير محدد")
+    
+    # Format WhatsApp URL
+    clean_phone = "".join(filter(str.isdigit, phone))
+    if clean_phone.startswith("07"):
+        clean_phone = "964" + clean_phone[1:]
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: Arial, sans-serif; background-color: #F6F2E9; padding: 20px; color: #22392B;">
+      <div style="max-width: 560px; margin: auto; background: #ffffff; border: 1px solid #C4A35A; border-radius: 16px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+        <h2 style="color: #22392B; margin-top: 0; border-bottom: 2px solid #C4A35A; padding-bottom: 12px;">🎉 حجز جديد على منصة «جاوبني»</h2>
+        <p style="font-size: 15px; color: #445138;">وصلك طلب تواصل / اشتراك جديد من الموقع الرسمي:</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
+          <tr style="background-color: #F6F2E9;">
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6; width: 35%;">الاسم الثلاثي:</td>
+            <td style="padding: 10px; border: 1px solid #E2D9C6; font-weight: bold; color: #22392B;">{name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">رقم الهاتف:</td>
+            <td style="padding: 10px; border: 1px solid #E2D9C6;">
+              <a href="tel:{phone}" style="color: #22392B; font-weight: bold; text-decoration: none;">{phone}</a>
+              &nbsp;|&nbsp;
+              <a href="https://wa.me/{clean_phone}" style="color: #25D366; font-weight: bold; text-decoration: none;">💬 فتح بالواتساب</a>
+            </td>
+          </tr>
+          <tr style="background-color: #F6F2E9;">
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">اسم المشروع / النشاط:</td>
+            <td style="padding: 10px; border: 1px solid #E2D9C6;">{biz_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">الخطة / نوع الطلب:</td>
+            <td style="padding: 10px; border: 1px solid #E2D9C6; color: #C4A35A; font-weight: bold;">{biz_type}</td>
+          </tr>
+        </table>
+        
+        <div style="background-color: #22392B; color: #F6F2E9; padding: 12px 18px; border-radius: 10px; text-align: center; margin-top: 20px;">
+          <a href="https://wa.me/{clean_phone}" style="color: #C4A35A; text-decoration: none; font-weight: bold; font-size: 15px;">مراسلة الزبون على الواتساب فوراً 🚀</a>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+    
+    if smtp_user and smtp_pass:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"🔥 حجز جديد في جاوبني: {name} - {phone}"
+            msg["From"] = f"جاوبني <{smtp_user}>"
+            msg["To"] = ADMIN_NOTIFICATION_EMAIL
+            
+            part = MIMEText(html, "html", "utf-8")
+            msg.attach(part)
+            
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(smtp_user, ADMIN_NOTIFICATION_EMAIL, msg.as_string())
+            print(f"Email notification successfully sent to {ADMIN_NOTIFICATION_EMAIL}")
+        except Exception as e:
+            print(f"Failed to send email notification: {str(e)}", file=sys.stderr)
+    else:
+        print(f"[Lead Recorded]: {name} | {phone} | {biz_name} | Destination: {ADMIN_NOTIFICATION_EMAIL}")
+
 @app.route('/api/leads', methods=['POST'])
 def save_lead():
     data = request.json or {}
@@ -206,7 +286,7 @@ def save_lead():
     business_type = data.get("business_type", "").strip()
     
     if not name or (not phone and not email):
-        return jsonify({"error": "الرجاء إدخال الاسم ومعلومات الاتصال (الهاتف أو الإيميل)."}), 400
+        return jsonify({"error": "الرجاء إدخال الاسم الثلاثي ورقم الهاتف للتواصل."}), 400
         
     try:
         db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "leads.db")
@@ -218,8 +298,12 @@ def save_lead():
         """, (name, phone, email, business_name, business_type))
         conn.commit()
         conn.close()
-        print("Lead saved successfully.")
-        return jsonify({"success": True, "message": "Lead saved successfully."})
+        print("Lead saved successfully in SQLite.")
+        
+        # Send Email notification
+        send_lead_email(data)
+        
+        return jsonify({"success": True, "message": "تم استلام وتثبيت حجزك بنجاح! سنتواصل معك قريباً."})
     except Exception as e:
         print("Failed to save lead to database:", str(e), file=sys.stderr)
         return jsonify({"error": "حدث خطأ أثناء حفظ البيانات."}), 500
