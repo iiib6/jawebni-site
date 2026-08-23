@@ -109,26 +109,24 @@
     }
 
     .login-brand-img {
-      width: 76px;
-      height: 76px;
-      border-radius: 18px;
-      border: 2px solid var(--gold);
-      box-shadow: 0 0 25px var(--gold-glow), 0 8px 24px rgba(0, 0, 0, 0.4);
+      width: 84px;
+      height: 84px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 18px rgba(196, 163, 90, 0.5));
       transition: transform 0.3s ease;
       display: block;
       margin: 0 auto;
     }
 
     .login-brand-img:hover {
-      transform: scale(1.05);
+      transform: scale(1.08);
     }
 
     .header-brand-img {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      border: 1.5px solid var(--gold);
-      box-shadow: 0 0 15px var(--gold-glow);
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 10px rgba(196, 163, 90, 0.45));
       display: block;
     }
 
@@ -635,7 +633,7 @@
   <div class="login-container" id="loginView">
     <div class="login-card">
       <div class="login-logo">
-        <img src="assets/logo.svg" alt="شعار جاوبني" class="login-brand-img" />
+        <img src="assets/logo.png" alt="شعار جاوبني" class="login-brand-img" />
       </div>
       <h1 class="login-title">جاوبني — الإدارة</h1>
       <p class="login-subtitle">سجّل الدخول للوصول إلى إحصائيات وبيانات الموقع</p>
@@ -669,7 +667,7 @@
     <header class="admin-header">
       <div class="admin-header__inner">
         <div class="brand-group">
-          <img src="assets/logo.svg" alt="شعار جاوبني" class="header-brand-img" />
+          <img src="assets/logo.png" alt="شعار جاوبني" class="header-brand-img" />
           <div>
             <h2 style="font-size: 1.25rem; line-height: 1.1; color: var(--text-main);">لوحة تحكم جاوبني</h2>
             <span style="font-size: 0.75rem; color: var(--text-muted);">إحصائيات الزوار وإدارة العملاء</span>
