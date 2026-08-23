@@ -32,20 +32,63 @@ from functools import wraps
 ADMIN_DEFAULT_USER = "admin"
 ADMIN_DEFAULT_PASS = "aabbddaA1"
 
-# SQLite database setup
+# Zero-dependency manual .env loader
+def load_env():
+    env_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        os.environ[key.strip()] = val.strip()
+        except Exception as e:
+            print("Failed to read .env file:", str(e), file=sys.stderr)
+
+load_env()
+
+def is_postgres():
+    return bool(os.environ.get("DATABASE_URL", "").strip())
+
 def get_db():
+    db_url = os.environ.get("DATABASE_URL", "").strip()
+    if db_url:
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        try:
+            import psycopg2
+            import psycopg2.extras
+            conn = psycopg2.connect(db_url)
+            return conn, psycopg2.extras.RealDictCursor
+        except Exception as e:
+            print("PostgreSQL connection attempt failed:", str(e), file=sys.stderr)
+            
     db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "leads.db")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    return conn
+    return conn, None
+
+def get_cursor(conn, cf=None):
+    if cf:
+        return conn.cursor(cursor_factory=cf)
+    return conn.cursor()
+
+def adapt_query(query):
+    if is_postgres():
+        return query.replace("?", "%s")
+    return query
 
 def init_db():
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
+        
+        id_col = "SERIAL PRIMARY KEY" if is_postgres() else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        
+        cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS leads (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_col},
                 name TEXT,
                 phone TEXT,
                 email TEXT,
@@ -54,9 +97,9 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        cursor.execute("""
+        cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS visitor_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_col},
                 session_id TEXT UNIQUE,
                 ip TEXT,
                 user_agent TEXT,
@@ -80,25 +123,11 @@ def init_db():
         """)
         conn.commit()
         conn.close()
-        print("Database tables initialized successfully (leads, visitor_sessions, admin_tokens).")
+        db_type = "PostgreSQL Cloud Database" if is_postgres() else "SQLite (leads.db)"
+        print(f"Database tables initialized successfully ({db_type}).")
     except Exception as e:
         print("Failed to initialize database:", str(e), file=sys.stderr)
 
-# Zero-dependency manual .env loader
-def load_env():
-    env_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), ".env")
-    if os.path.exists(env_path):
-        try:
-            with open(env_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        key, val = line.split("=", 1)
-                        os.environ[key.strip()] = val.strip()
-        except Exception as e:
-            print("Failed to read .env file:", str(e), file=sys.stderr)
-
-load_env()
 init_db()
 API_KEY = os.environ.get("GEMINI_API_KEY")
 
@@ -361,16 +390,15 @@ def save_lead():
         return jsonify({"error": "الرجاء إدخال الاسم الثلاثي ورقم الهاتف للتواصل."}), 400
         
     try:
-        db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "leads.db")
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
+        cursor.execute(adapt_query("""
             INSERT INTO leads (name, phone, email, business_name, business_type)
             VALUES (?, ?, ?, ?, ?)
-        """, (name, phone, email, business_name, business_type))
+        """), (name, phone, email, business_name, business_type))
         conn.commit()
         conn.close()
-        print("Lead saved successfully in SQLite.")
+        print("Lead saved successfully.")
         
         # Send Email notification
         send_lead_email(data)
@@ -439,14 +467,14 @@ def track_visit():
     device, os_name, browser = parse_user_agent(raw_ua, screen_width)
     
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
+        cursor.execute(adapt_query("""
             INSERT INTO visitor_sessions (session_id, ip, user_agent, device_type, browser, os, referrer, duration_seconds, scroll_depth, created_at, last_active)
             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT(session_id) DO UPDATE SET
                 last_active = CURRENT_TIMESTAMP
-        """, (session_id, ip, raw_ua[:250], device, browser, os_name, referrer[:250]))
+        """), (session_id, ip, raw_ua[:250], device, browser, os_name, referrer[:250]))
         conn.commit()
         conn.close()
         return jsonify({"success": True, "session_id": session_id})
@@ -465,15 +493,15 @@ def track_ping():
     scroll_depth = int(data.get("scroll_depth", 0))
     
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
+        cursor.execute(adapt_query("""
             UPDATE visitor_sessions
-            SET duration_seconds = MAX(duration_seconds, ?),
-                scroll_depth = MAX(scroll_depth, ?),
+            SET duration_seconds = CASE WHEN ? > duration_seconds THEN ? ELSE duration_seconds END,
+                scroll_depth = CASE WHEN ? > scroll_depth THEN ? ELSE scroll_depth END,
                 last_active = CURRENT_TIMESTAMP
             WHERE session_id = ?
-        """, (duration, scroll_depth, session_id))
+        """), (duration, duration, scroll_depth, scroll_depth, session_id))
         conn.commit()
         conn.close()
         return jsonify({"success": True})
@@ -494,12 +522,12 @@ def verify_token(token):
     if not token:
         return None
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
+        cursor.execute(adapt_query("""
             SELECT username, expires_at FROM admin_tokens
             WHERE token = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-        """, (token,))
+        """), (token,))
         row = cursor.fetchone()
         conn.close()
         if row:
@@ -551,12 +579,12 @@ def admin_login():
         expires_at = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
         
         try:
-            conn = get_db()
-            cursor = conn.cursor()
-            cursor.execute("""
+            conn, cf = get_db()
+            cursor = get_cursor(conn, cf)
+            cursor.execute(adapt_query("""
                 INSERT INTO admin_tokens (token, username, created_at, expires_at)
                 VALUES (?, ?, CURRENT_TIMESTAMP, ?)
-            """, (token, username, expires_at))
+            """), (token, username, expires_at))
             conn.commit()
             conn.close()
             
@@ -590,9 +618,9 @@ def admin_logout():
         
     if token:
         try:
-            conn = get_db()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM admin_tokens WHERE token = ?", (token,))
+            conn, cf = get_db()
+            cursor = get_cursor(conn, cf)
+            cursor.execute(adapt_query("DELETE FROM admin_tokens WHERE token = ?"), (token,))
             conn.commit()
             conn.close()
         except Exception as e:
@@ -622,15 +650,18 @@ def check_auth():
 @admin_required
 def admin_stats():
     try:
-        conn = get_db()
-        cursor = conn.cursor()
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
         
-        # 1. Active Now (last active in last 3 minutes)
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM visitor_sessions
-            WHERE last_active >= datetime('now', '-3 minutes')
-        """)
-        active_now = cursor.fetchone()["count"]
+        # Dialect condition strings
+        active_cond = "last_active >= NOW() - INTERVAL '3 minutes'" if is_postgres() else "last_active >= datetime('now', '-3 minutes')"
+        today_cond = "DATE(created_at) = CURRENT_DATE" if is_postgres() else "DATE(created_at) = DATE('now')"
+        days7_cond = "created_at >= NOW() - INTERVAL '7 days'" if is_postgres() else "created_at >= datetime('now', '-7 days')"
+        days14_cond = "created_at >= NOW() - INTERVAL '14 days'" if is_postgres() else "created_at >= datetime('now', '-14 days')"
+        
+        # 1. Active Now
+        cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {active_cond}")
+        active_now = cursor.fetchone()["count"] or 0
         
         # 2. Total Sessions & Unique Visitors
         cursor.execute("SELECT COUNT(*) as total_sessions, COUNT(DISTINCT ip) as unique_ips FROM visitor_sessions")
@@ -639,17 +670,11 @@ def admin_stats():
         unique_visitors = row["unique_ips"] or 0
         
         # 3. Today's visitors
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM visitor_sessions
-            WHERE DATE(created_at) = DATE('now')
-        """)
+        cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {today_cond}")
         visitors_today = cursor.fetchone()["count"] or 0
         
         # 4. Last 7 Days visitors
-        cursor.execute("""
-            SELECT COUNT(*) as count FROM visitor_sessions
-            WHERE created_at >= datetime('now', '-7 days')
-        """)
+        cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {days7_cond}")
         visitors_7d = cursor.fetchone()["count"] or 0
         
         # 5. Average Duration & Bounce Rate
@@ -661,7 +686,7 @@ def admin_stats():
             FROM visitor_sessions
         """)
         dur_row = cursor.fetchone()
-        avg_duration = round(dur_row["avg_duration"] or 0, 1)
+        avg_duration = round(float(dur_row["avg_duration"] or 0), 1)
         bounces = dur_row["bounces"] or 0
         total_tracked = dur_row["total"] or 0
         bounce_rate = round((bounces / total_tracked * 100) if total_tracked > 0 else 0, 1)
@@ -687,17 +712,16 @@ def admin_stats():
         os_stats = {r["os"]: r["count"] for r in os_rows}
         
         # 8. Daily Visits Trend (Last 14 Days)
-        cursor.execute("""
+        cursor.execute(f"""
             SELECT DATE(created_at) as visit_date, COUNT(*) as count
             FROM visitor_sessions
-            WHERE created_at >= datetime('now', '-14 days')
+            WHERE {days14_cond}
             GROUP BY DATE(created_at)
             ORDER BY visit_date ASC
         """)
         daily_rows = cursor.fetchall()
-        daily_trend = {r["visit_date"]: r["count"] for r in daily_rows}
+        daily_trend = {str(r["visit_date"]): r["count"] for r in daily_rows}
         
-        # Generate complete 14-day list even with 0s
         trend_labels = []
         trend_values = []
         today = datetime.date.today()
@@ -768,8 +792,8 @@ def admin_stats():
 @admin_required
 def admin_get_leads():
     try:
-        conn = get_db()
-        cursor = conn.cursor()
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
         cursor.execute("SELECT id, name, phone, email, business_name, business_type, created_at FROM leads ORDER BY id DESC")
         rows = cursor.fetchall()
         conn.close()
@@ -783,9 +807,9 @@ def admin_get_leads():
 @admin_required
 def admin_delete_lead(lead_id):
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM leads WHERE id = ?", (lead_id,))
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
+        cursor.execute(adapt_query("DELETE FROM leads WHERE id = ?"), (lead_id,))
         conn.commit()
         conn.close()
         return jsonify({"success": True, "message": "تم حذف الحجز بنجاح."})
@@ -800,8 +824,8 @@ import io
 @admin_required
 def export_leads_csv():
     try:
-        conn = get_db()
-        cursor = conn.cursor()
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
         cursor.execute("SELECT id, name, phone, email, business_name, business_type, created_at FROM leads ORDER BY id DESC")
         rows = cursor.fetchall()
         conn.close()
@@ -820,7 +844,7 @@ def export_leads_csv():
                 r["email"] or "غير محدد",
                 r["business_name"] or "غير محدد",
                 r["business_type"] or "استشارة عامة",
-                r["created_at"]
+                str(r["created_at"])
             ])
             
         response = app.response_class(
@@ -849,4 +873,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"Starting Flask Server on http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+
 
