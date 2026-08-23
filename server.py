@@ -77,23 +77,31 @@ def get_pg_pool():
 def is_postgres():
     return bool(os.environ.get("DATABASE_URL", "").strip())
 
+class PooledConnectionWrapper:
+    def __init__(self, conn, pool):
+        self._conn = conn
+        self._pool = pool
+        self._closed = False
+
+    def close(self):
+        if not self._closed:
+            self._closed = True
+            try:
+                self._pool.putconn(self._conn)
+            except Exception:
+                pass
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
 def get_db():
     pool = get_pg_pool()
     if pool:
         try:
             import psycopg2.extras
-            conn = pool.getconn()
-            orig_close = conn.close
-            def release_to_pool():
-                try:
-                    pool.putconn(conn)
-                except Exception:
-                    try:
-                        orig_close()
-                    except Exception:
-                        pass
-            conn.close = release_to_pool
-            return conn, psycopg2.extras.RealDictCursor
+            raw_conn = pool.getconn()
+            wrapper = PooledConnectionWrapper(raw_conn, pool)
+            return wrapper, psycopg2.extras.RealDictCursor
         except Exception as e:
             print("Error acquiring connection from pool:", str(e), file=sys.stderr)
 
