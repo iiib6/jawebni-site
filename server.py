@@ -48,10 +48,55 @@ def load_env():
 
 load_env()
 
+_pg_pool = None
+
+def get_pg_pool():
+    global _pg_pool
+    db_url = os.environ.get("DATABASE_URL", "").strip()
+    if db_url and _pg_pool is None:
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        try:
+            import psycopg2.pool
+            import psycopg2.extras
+            _pg_pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=20,
+                dsn=db_url,
+                connect_timeout=8,
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5
+            )
+            print("PostgreSQL Threaded Connection Pool initialized successfully.")
+        except Exception as e:
+            print("Failed to initialize PostgreSQL pool:", str(e), file=sys.stderr)
+    return _pg_pool
+
 def is_postgres():
     return bool(os.environ.get("DATABASE_URL", "").strip())
 
 def get_db():
+    pool = get_pg_pool()
+    if pool:
+        try:
+            import psycopg2.extras
+            conn = pool.getconn()
+            orig_close = conn.close
+            def release_to_pool():
+                try:
+                    pool.putconn(conn)
+                except Exception:
+                    try:
+                        orig_close()
+                    except Exception:
+                        pass
+            conn.close = release_to_pool
+            return conn, psycopg2.extras.RealDictCursor
+        except Exception as e:
+            print("Error acquiring connection from pool:", str(e), file=sys.stderr)
+
     db_url = os.environ.get("DATABASE_URL", "").strip()
     if db_url:
         if db_url.startswith("postgres://"):
@@ -62,7 +107,7 @@ def get_db():
             conn = psycopg2.connect(db_url)
             return conn, psycopg2.extras.RealDictCursor
         except Exception as e:
-            print("PostgreSQL connection attempt failed:", str(e), file=sys.stderr)
+            print("PostgreSQL direct connection failed:", str(e), file=sys.stderr)
             
     db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "leads.db")
     conn = sqlite3.connect(db_path)
