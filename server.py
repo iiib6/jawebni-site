@@ -528,10 +528,15 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@app.route('/admin')
-@app.route('/admin.html')
+@app.route('/pathogenesis')
+@app.route('/pathogenesis.html')
 def admin_page():
     return app.send_static_file('admin.html')
+
+@app.route('/admin')
+@app.route('/admin.html')
+def admin_blocked():
+    return jsonify({"error": "Page not found"}), 404
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():

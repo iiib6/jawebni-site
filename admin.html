@@ -105,19 +105,31 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 60px;
-      height: 60px;
-      background: var(--bg-surface);
-      border: 1px solid var(--gold);
-      border-radius: 16px;
       margin-bottom: 20px;
-      box-shadow: 0 0 20px var(--gold-glow);
     }
 
-    .login-logo svg {
-      width: 32px;
-      height: 32px;
-      fill: var(--gold);
+    .login-brand-img {
+      width: 76px;
+      height: 76px;
+      border-radius: 18px;
+      border: 2px solid var(--gold);
+      box-shadow: 0 0 25px var(--gold-glow), 0 8px 24px rgba(0, 0, 0, 0.4);
+      transition: transform 0.3s ease;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .login-brand-img:hover {
+      transform: scale(1.05);
+    }
+
+    .header-brand-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1.5px solid var(--gold);
+      box-shadow: 0 0 15px var(--gold-glow);
+      display: block;
     }
 
     .login-title {
@@ -623,9 +635,7 @@
   <div class="login-container" id="loginView">
     <div class="login-card">
       <div class="login-logo">
-        <svg viewBox="0 0 64 64">
-          <path d="M32 10 L54 32 L32 54 L10 32 Z" />
-        </svg>
+        <img src="assets/logo.svg" alt="شعار جاوبني" class="login-brand-img" />
       </div>
       <h1 class="login-title">جاوبني — الإدارة</h1>
       <p class="login-subtitle">سجّل الدخول للوصول إلى إحصائيات وبيانات الموقع</p>
@@ -659,13 +669,9 @@
     <header class="admin-header">
       <div class="admin-header__inner">
         <div class="brand-group">
-          <div class="login-logo" style="width:38px; height:38px; margin:0; border-radius:10px;">
-            <svg style="width:20px; height:20px;" viewBox="0 0 64 64">
-              <path d="M32 10 L54 32 L32 54 L10 32 Z" />
-            </svg>
-          </div>
+          <img src="assets/logo.svg" alt="شعار جاوبني" class="header-brand-img" />
           <div>
-            <h2 style="font-size: 1.2rem; line-height: 1;">لوحة تحكم جاوبني</h2>
+            <h2 style="font-size: 1.25rem; line-height: 1.1; color: var(--text-main);">لوحة تحكم جاوبني</h2>
             <span style="font-size: 0.75rem; color: var(--text-muted);">إحصائيات الزوار وإدارة العملاء</span>
           </div>
           <span class="brand-badge">خاص بالمسؤول</span>
