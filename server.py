@@ -8,21 +8,29 @@ import sqlite3
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
-# Rate limit: 15 requests per minute per IP address
+def get_client_ip():
+    return (
+        request.headers.get("CF-Connecting-IP")
+        or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        or request.remote_addr
+        or "127.0.0.1"
+    )
+
+# Robust in-memory rate limiter per IP/action
 RATE_LIMIT_LIMIT = 15
 RATE_LIMIT_WINDOW = 60  # seconds
-ip_requests = {}  # ip: [timestamps]
+ip_requests = {}  # key: [timestamps]
 
-def is_rate_limited(ip):
+def is_rate_limited(key, limit=RATE_LIMIT_LIMIT, window=RATE_LIMIT_WINDOW):
     now = time.time()
-    if ip not in ip_requests:
-        ip_requests[ip] = []
-    ip_requests[ip] = [t for t in ip_requests[ip] if now - t < RATE_LIMIT_WINDOW]
+    if key not in ip_requests:
+        ip_requests[key] = []
+    ip_requests[key] = [t for t in ip_requests[key] if now - t < window]
     
-    if len(ip_requests[ip]) >= RATE_LIMIT_LIMIT:
+    if len(ip_requests[key]) >= limit:
         return True
     
-    ip_requests[ip].append(now)
+    ip_requests[key].append(now)
     return False
 
 import secrets
@@ -231,11 +239,11 @@ def get_sa_token():
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    # 1. Rate limiting check
-    client_ip = request.remote_addr or "unknown"
-    if is_rate_limited(client_ip):
+    # 1. Rate limiting check (Max 10 AI chat messages per minute per IP)
+    client_ip = get_client_ip()
+    if is_rate_limited(f"{client_ip}:chat", limit=10, window=60):
         return jsonify({
-            "error": "لقد تجاوزت حد الطلبات المسموح به. يرجى الانتظار دقيقة قبل المحاولة مجدداً."
+            "error": "لقد تجاوزت حد الطلبات المسموح به للدردشة. يرجى الانتظار دقيقة قبل المحاولة مجدداً."
         }), 429
 
     client_payload = request.json or {}
@@ -432,6 +440,10 @@ def send_lead_email(lead_data):
 
 @app.route('/api/leads', methods=['POST'])
 def save_lead():
+    client_ip = get_client_ip()
+    if is_rate_limited(f"{client_ip}:lead", limit=5, window=60):
+        return jsonify({"error": "تم تسجيل عدة محاولات في وقت قصير، يرجى الانتظار دقيقة قبل إعادة المحاولة."}), 429
+
     data = request.json or {}
     name = data.get("name", "").strip()
     phone = data.get("phone", "").strip()
@@ -621,6 +633,10 @@ def admin_blocked():
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
+    client_ip = get_client_ip()
+    if is_rate_limited(f"{client_ip}:admin_login", limit=5, window=60):
+        return jsonify({"error": "محاولات تسجيل دخول متكررة، يرجى الانتظار دقيقة قبل المحاولة مجدداً."}), 429
+
     data = request.json or {}
     username = data.get("username", "").strip()
     password = data.get("password", "").strip()
@@ -647,12 +663,14 @@ def admin_login():
                 "token": token,
                 "username": username
             })
-            # Set cookie for 7 days
+            # Set cookie for 7 days with Secure flag in production/https
+            is_https = request.is_secure or request.headers.get("X-Forwarded-Proto") == "https" or bool(os.environ.get("RENDER"))
             res.set_cookie(
                 "jawebni_admin_token",
                 token,
                 max_age=7*24*60*60,
                 httponly=True,
+                secure=is_https,
                 samesite="Lax"
             )
             return res
@@ -910,12 +928,31 @@ def export_leads_csv():
         print("Export CSV error:", str(e), file=sys.stderr)
         return jsonify({"error": "فشل تصدير البيانات."}), 500
 
-# Disable caching for all static files
+# Security Hardening & Cache Control Headers
 @app.after_request
-def add_header(response):
+def add_security_headers(response):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    
+    # 🛡️ OWASP Security Headers
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https:; "
+        "frame-ancestors 'self';"
+    )
+    # Mask / remove server identification
+    response.headers["Server"] = "Web-Server"
+    response.headers.pop("X-Powered-By", None)
     return response
 
 if __name__ == "__main__":
