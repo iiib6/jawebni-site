@@ -540,9 +540,9 @@ if (document.fonts && document.fonts.ready) {
       const card = btn.closest('.pricing-card');
       const planTitle = card ? card.querySelector('.pricing-card__title')?.textContent?.trim() : '';
       
-      let matchedValue = "خطة النمو (89,000 د.ع)";
-      if (planTitle && planTitle.includes("البداية")) matchedValue = "خطة البداية (49,000 د.ع)";
-      else if (planTitle && planTitle.includes("النخبة")) matchedValue = "خطة النخبة (149,000 د.ع)";
+      let matchedValue = "خطة النمو (تأسيس 899$ + 89,000 د.ع شهرياً)";
+      if (planTitle && planTitle.includes("البداية")) matchedValue = "خطة البداية (تأسيس 599$ + 49,000 د.ع شهرياً)";
+      else if (planTitle && planTitle.includes("النخبة")) matchedValue = "خطة النخبة (تأسيس 1299$ + 149,000 د.ع شهرياً)";
       
       if (bookPlanSelect) {
         bookPlanSelect.value = matchedValue;
@@ -626,7 +626,7 @@ if (document.fonts && document.fonts.ready) {
       const fullName = bookFullNameInput ? bookFullNameInput.value.trim() : "";
       const phone = bookPhoneInput ? bookPhoneInput.value.trim() : "";
       const bizName = bookBizNameInput ? bookBizNameInput.value.trim() : "";
-      const plan = bookPlanSelect ? bookPlanSelect.value : "خطة النمو (89,000 د.ع)";
+      const plan = bookPlanSelect ? bookPlanSelect.value : "خطة النمو (تأسيس 899$ + 89,000 د.ع شهرياً)";
       
       if (!fullName || !phone) {
         alert("الرجاء إدخال الاسم الثلاثي ورقم الهاتف للتواصل.");

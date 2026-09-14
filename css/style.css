@@ -627,6 +627,98 @@ body {
   opacity: 0.85;
 }
 
+.pricing-card__setup {
+  margin-top: 1rem;
+  background: rgba(196, 163, 90, 0.08);
+  border: 1px solid rgba(196, 163, 90, 0.25);
+  border-radius: 16px;
+  padding: 0.85rem 0.8rem 0.75rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.pricing-card--featured .pricing-card__setup {
+  background: rgba(196, 163, 90, 0.14);
+  border-color: rgba(196, 163, 90, 0.45);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
+}
+
+.pricing-card__setup-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--sand-soft);
+  margin-bottom: 0.3rem;
+  font-weight: 400;
+}
+
+.pricing-card__setup-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.pricing-card__setup-curr {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.pricing-card__setup-amount {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.1rem, 3.6vw, 2.6rem);
+  color: var(--gold);
+  line-height: 1;
+}
+
+.pricing-card__setup-once {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--sand);
+  margin-top: 0.3rem;
+  opacity: 0.9;
+}
+
+.pricing-card__monthly {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.pricing-card__monthly-plus {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.pricing-card__monthly-amount {
+  font-weight: 700;
+  color: var(--cream);
+  font-size: 0.95rem;
+}
+
+.pricing-card__monthly-curr {
+  font-weight: 700;
+  color: var(--sand);
+  font-size: 0.82rem;
+}
+
+.pricing-card__monthly-period {
+  font-size: 0.78rem;
+  color: var(--sand-soft);
+  opacity: 0.85;
+}
+
 .pricing-card__price {
   margin-top: 0.9rem;
   display: flex;

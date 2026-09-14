@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=20260914" />
 </head>
 <body>
 
@@ -132,21 +132,34 @@
     <div class="container">
       <div class="pricing__header">
         <h2 class="section-title section-title--light">اختر الخطة المناسبة لنشاطك</h2>
-        <p class="pricing__subtitle">أسعار بسيطة وشفافة بالدينار العراقي — بلا رسوم خفية، وبلا عقود طويلة.</p>
+        <p class="pricing__subtitle">رسوم تأسيس وتدريب تُدفع لمرة واحدة لبرمجة موظفك الذكي + اشتراك شهري بسيط بالدينار العراقي لتشغيل السيرفرات والصيانة.</p>
       </div>
 
       <div class="pricing__grid">
-        <!-- الخطة الأولى: البداية (49,000 د.ع) -->
+        <!-- الخطة الأولى: البداية (تأسيس 599$ + 49,000 د.ع) -->
         <article class="pricing-card">
           <div class="pricing-card__body">
             <div class="pricing-card__header">
               <span class="pricing-card__icon-badge" aria-hidden="true">💎</span>
               <h3 class="pricing-card__title">خطة البداية</h3>
               <p class="pricing-card__tagline">للمشاريع الناشئة والصفحات الواعدة</p>
-              <div class="pricing-card__price">
-                <span class="pricing-card__amount">٤٩,٠٠٠</span>
-                <span class="pricing-card__currency">د.ع</span>
-                <span class="pricing-card__period">/ شهرياً</span>
+              
+              <!-- كتلة رسوم التأسيس -->
+              <div class="pricing-card__setup">
+                <span class="pricing-card__setup-label">رسوم التأسيس والتدريب</span>
+                <div class="pricing-card__setup-price">
+                  <span class="pricing-card__setup-curr">$</span>
+                  <span class="pricing-card__setup-amount">599</span>
+                </div>
+                <span class="pricing-card__setup-once">تدفع لمرة واحدة فقط</span>
+              </div>
+
+              <!-- الاشتراك الشهري -->
+              <div class="pricing-card__monthly">
+                <span class="pricing-card__monthly-plus">+</span>
+                <span class="pricing-card__monthly-amount">٤٩,٠٠٠</span>
+                <span class="pricing-card__monthly-curr">د.ع</span>
+                <span class="pricing-card__monthly-period">/ شهرياً (سيرفرات ودعم)</span>
               </div>
             </div>
 
@@ -159,7 +172,7 @@
               <ul class="pricing-card__features">
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🔹</span>
-                  <span>وكيل ذكاء اصطناعي واحد (منصة واحدة)</span>
+                  <span>تأسيس وبرمجة وكيل ذكي لـ <strong>منصة واحدة</strong> (واتساب أو انستغرام)</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">💬</span>
@@ -167,15 +180,15 @@
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">⚡</span>
-                  <span>ردود فورية 24/7 بلغة عراقية دافئة</span>
+                  <span>ردود فورية 24/7 بلغة عراقية دافئة ومقنعة</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🎯</span>
-                  <span>تدريب كامل على منتجاتك وأسعارك</span>
+                  <span>تدريب كامل على كافة منتجاتك، أسعارك، والردود المكررة</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">📊</span>
-                  <span>لوحة متابعة بسيطة للرسائل والعملاء</span>
+                  <span>لوحة متابعة بسيطة لإحصائيات الرسائل والعملاء</span>
                 </li>
               </ul>
             </div>
@@ -186,18 +199,31 @@
           </div>
         </article>
 
-        <!-- الخطة الثانية: النمو (89,000 د.ع) - الأكثر طلباً -->
+        <!-- الخطة الثانية: النمو (تأسيس 899$ - تطبيقين + 89,000 د.ع) - الأكثر طلباً -->
         <article class="pricing-card pricing-card--featured">
           <div class="pricing-card__badge">🔥 الأكثر طلباً</div>
           <div class="pricing-card__body">
             <div class="pricing-card__header">
               <span class="pricing-card__icon-badge" aria-hidden="true">🚀</span>
               <h3 class="pricing-card__title">خطة النمو</h3>
-              <p class="pricing-card__tagline">للمتاجر والشركات المتنامية</p>
-              <div class="pricing-card__price">
-                <span class="pricing-card__amount">٨٩,٠٠٠</span>
-                <span class="pricing-card__currency">د.ع</span>
-                <span class="pricing-card__period">/ شهرياً</span>
+              <p class="pricing-card__tagline">للمتاجر والشركات المتنامية (تطبيقين)</p>
+              
+              <!-- كتلة رسوم التأسيس -->
+              <div class="pricing-card__setup">
+                <span class="pricing-card__setup-label">رسوم التأسيس والتدريب</span>
+                <div class="pricing-card__setup-price">
+                  <span class="pricing-card__setup-curr">$</span>
+                  <span class="pricing-card__setup-amount">899</span>
+                </div>
+                <span class="pricing-card__setup-once">تدفع لمرة واحدة فقط (تشمل تطبيقين)</span>
+              </div>
+
+              <!-- الاشتراك الشهري -->
+              <div class="pricing-card__monthly">
+                <span class="pricing-card__monthly-plus">+</span>
+                <span class="pricing-card__monthly-amount">٨٩,٠٠٠</span>
+                <span class="pricing-card__monthly-curr">د.ع</span>
+                <span class="pricing-card__monthly-period">/ شهرياً (سيرفرات ودعم)</span>
               </div>
             </div>
 
@@ -210,7 +236,7 @@
               <ul class="pricing-card__features">
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🤖</span>
-                  <span><strong>٣</strong> وكلاء ذكاء اصطناعي (واتساب، انستغرام، فيسبوك)</span>
+                  <span>تأسيس وبرمجة وكلاء ذكاء اصطناعي لـ <strong>تطبيقين متكاملين</strong> (مثل واتساب + انستغرام)</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">💬</span>
@@ -218,19 +244,19 @@
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">📈</span>
-                  <span>أتمتة إغلاق المبيعات وحجز المواعيد</span>
+                  <span>أتمتة إغلاق الصفقات وحجز المواعيد والطلبات</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🗓️</span>
-                  <span>ربط مباشر مع تقويمك أو نظام الإدارة</span>
+                  <span>ربط مباشر مع تقويمك أو نظام إدارة الطلبات</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">📊</span>
-                  <span>تقارير أداء المحادثات ونسبة التحويل</span>
+                  <span>تقارير دقيقة لأداء المحادثات ونسبة تحويل الزبائن</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🤝</span>
-                  <span>دعم فني مخصص وأولوية الاستجابة</span>
+                  <span>دعم فني مخصص وأولوية في المتابعة والتحديث</span>
                 </li>
               </ul>
             </div>
@@ -241,17 +267,30 @@
           </div>
         </article>
 
-        <!-- الخطة الثالثة: النخبة (149,000 د.ع) -->
+        <!-- الخطة الثالثة: النخبة (تأسيس 1299$ + 149,000 د.ع) -->
         <article class="pricing-card">
           <div class="pricing-card__body">
             <div class="pricing-card__header">
               <span class="pricing-card__icon-badge" aria-hidden="true">👑</span>
               <h3 class="pricing-card__title">خطة النخبة</h3>
               <p class="pricing-card__tagline">للعيادات والمؤسسات والشركات الكبرى</p>
-              <div class="pricing-card__price">
-                <span class="pricing-card__amount">١٤٩,٠٠٠</span>
-                <span class="pricing-card__currency">د.ع</span>
-                <span class="pricing-card__period">/ شهرياً</span>
+              
+              <!-- كتلة رسوم التأسيس -->
+              <div class="pricing-card__setup">
+                <span class="pricing-card__setup-label">رسوم التأسيس والتدريب</span>
+                <div class="pricing-card__setup-price">
+                  <span class="pricing-card__setup-curr">$</span>
+                  <span class="pricing-card__setup-amount">1,299</span>
+                </div>
+                <span class="pricing-card__setup-once">تدفع لمرة واحدة فقط (شاملة كل المنصات)</span>
+              </div>
+
+              <!-- الاشتراك الشهري -->
+              <div class="pricing-card__monthly">
+                <span class="pricing-card__monthly-plus">+</span>
+                <span class="pricing-card__monthly-amount">١٤٩,٠٠٠</span>
+                <span class="pricing-card__monthly-curr">د.ع</span>
+                <span class="pricing-card__monthly-period">/ شهرياً (سيرفرات فائقة ودعم)</span>
               </div>
             </div>
 
@@ -264,23 +303,27 @@
               <ul class="pricing-card__features">
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">👑</span>
-                  <span>وكلاء ومحادثات <strong>غير محدودة</strong></span>
+                  <span>تأسيس شامل لـ <strong>كافة المنصات</strong> (واتساب، انستغرام، ماسنجر، الموقع)</span>
+                </li>
+                <li>
+                  <span class="pricing-card__icon" aria-hidden="true">♾️</span>
+                  <span>محادثات واستشارات <strong>غير محدودة</strong></span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🧠</span>
-                  <span>تدريب مخصص وتوجيه سيناريوهات البيع المعقدة</span>
+                  <span>تدريب مخصص وسيناريوهات تفاوض وإغلاق مبيعات معقدة</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🔌</span>
-                  <span>ربط API مخصص وأنظمة CRM الخاصة بك</span>
+                  <span>ربط API مخصص وأنظمة CRM والبرامج المحاسبية الخاصة بك</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">🚀</span>
-                  <span>سيرفرات فائقة السرعة مع ضمان 99.9%</span>
+                  <span>سيرفرات فائقة السرعة مع ضمان تشغيل 99.9%</span>
                 </li>
                 <li>
                   <span class="pricing-card__icon" aria-hidden="true">👤</span>
-                  <span>مدير حساب مخصص + دعم فني مباشر 24/7</span>
+                  <span>مدير حساب مخصص + دعم فني ومتابعة VIP 24/7</span>
                 </li>
               </ul>
             </div>
@@ -340,9 +383,9 @@
           <div class="demo-form-group">
             <label for="bookPlanSelect">الخطة المطلوبة:</label>
             <select id="bookPlanSelect" class="demo-select">
-              <option value="خطة البداية (49,000 د.ع)">خطة البداية (٤٩,٠٠٠ د.ع / شهرياً)</option>
-              <option value="خطة النمو (89,000 د.ع)" selected>خطة النمو — الأكثر طلباً (٨٩,٠٠٠ د.ع / شهرياً)</option>
-              <option value="خطة النخبة (149,000 د.ع)">خطة النخبة (١٤٩,٠٠٠ د.ع / شهرياً)</option>
+              <option value="خطة البداية (تأسيس 599$ + 49,000 د.ع شهرياً)">خطة البداية (تطبيق واحد — تأسيس 599$ + ٤٩,٠٠٠ د.ع/شهرياً)</option>
+              <option value="خطة النمو (تأسيس 899$ + 89,000 د.ع شهرياً)" selected>خطة النمو — الأكثر طلباً (تطبيقين — تأسيس 899$ + ٨٩,٠٠٠ د.ع/شهرياً)</option>
+              <option value="خطة النخبة (تأسيس 1299$ + 149,000 د.ع شهرياً)">خطة النخبة — شاملة (تأسيس 1,299$ + ١٤٩,٠٠٠ د.ع/شهرياً)</option>
               <option value="استشارة وعرض خاص">استشارة مخصصة / عرض خاص</option>
             </select>
           </div>
@@ -463,7 +506,7 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.min.js"></script>
-  <script src="js/main.js?v=20260818"></script>
+  <script src="js/main.js?v=20260914"></script>
   <script src="js/tracker.js" defer></script>
 </body>
 </html>
