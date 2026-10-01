@@ -290,10 +290,14 @@ if (reduceMotion) {
   gsap.set(stitchEls, { scale: 1, opacity: 1 });
 } else {
   /* التمرير الناعم */
-  window.lenis = new Lenis({ duration: 0.85, smoothWheel: true });
+  window.lenis = new Lenis({
+    duration: 0.85,
+    smoothWheel: true,
+    syncTouch: false,
+  });
   window.lenis.on("scroll", ScrollTrigger.update);
   gsap.ticker.add((time) => window.lenis.raf(time * 1000));
-  gsap.ticker.lagSmoothing(0);
+  gsap.ticker.lagSmoothing(500, 33);
 
   /* روابط الأقسام تمشي بنفس التمرير الناعم */
   document.querySelectorAll('a[href^="#"]').forEach((a) => {
@@ -875,14 +879,30 @@ if (document.fonts && document.fonts.ready) {
   function showTypingIndicator() {
     if (typingIndicatorEl) return;
     
+    const chatStatusEl = document.querySelector(".demo-chat-status");
+    if (chatStatusEl) {
+      chatStatusEl.innerHTML = "يكتب الآن… ✍️";
+      chatStatusEl.classList.add("is-typing");
+    }
+
     typingIndicatorEl = document.createElement("div");
     typingIndicatorEl.className = "typing-indicator";
-    typingIndicatorEl.innerHTML = "<span></span><span></span><span></span>";
+    typingIndicatorEl.innerHTML = `
+      <span class="typing-label">علي يكتب الآن</span>
+      <span class="typing-dots">
+        <span></span><span></span><span></span>
+      </span>
+    `;
     demoChatBody.appendChild(typingIndicatorEl);
     demoChatBody.scrollTop = demoChatBody.scrollHeight;
   }
 
   function hideTypingIndicator() {
+    const chatStatusEl = document.querySelector(".demo-chat-status");
+    if (chatStatusEl) {
+      chatStatusEl.innerHTML = "نشط الآن 🟢";
+      chatStatusEl.classList.remove("is-typing");
+    }
     if (typingIndicatorEl) {
       typingIndicatorEl.remove();
       typingIndicatorEl = null;

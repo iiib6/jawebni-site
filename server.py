@@ -290,12 +290,11 @@ def chat():
         import requests
         project = sa_data.get("project_id", "gen-lang-client-0148309017")
         
-        # Vertex AI Model endpoints configuration
+        # Vertex AI Model endpoints configuration (gemini-2.5-flash global is fastest ~1.7s)
         vertex_models = [
-            ("gemini-3.7-flash", "global"),
-            ("gemini-3.5-flash", "global"),
+            ("gemini-2.5-flash", "global"),
             ("gemini-2.5-flash", "us-central1"),
-            ("gemini-2.5-pro", "us-central1")
+            ("gemini-3.7-flash", "global"),
         ]
         
         headers = {
