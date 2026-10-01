@@ -54,14 +54,14 @@ mm.add(
   (ctx) => {
     const { isMobile } = ctx.conditions;
 
-    // إحداثيات المشهد داخل viewBox 1440×900 (مع القصّ slice تبقى
-    // النافذة المرئية على الموبايل تقريباً x:512-928)
+    // إحداثيات المشهد داخل viewBox 1440×900
+    // على الموبايل: المسار متمركز بالكامل داخل النافذة المرئية (x بين 640 و 780) والنقطة تستقر بقلب «ح» ليصبح «ج»
     const cfg = isMobile
       ? {
           anchorX: 720,
           anchorY: 580,
           fontSize: 340,
-          d: "M 340 160 C 520 40, 740 90, 800 240 C 840 340, 620 440, 650 540 C 662 580, 685 595, 707 606",
+          d: "M 720 80 C 790 160, 790 260, 720 340 C 640 420, 630 520, 670 560 C 690 580, 700 595, 707 606",
         }
       : {
           anchorX: 880,
@@ -117,76 +117,159 @@ mm.add(
     gsap.set(milestoneEls, { scale: 0.45, opacity: 0.28 });
     gsap.set(".hero__svg", { clearProps: "all" });
 
-    const heroTl = gsap.timeline({
-      defaults: { ease: "none" },
-      scrollTrigger: {
-        trigger: ".hero",
-        start: "top top",
-        end: "+=45%",
-        scrub: 0.1,
-        pin: ".hero__stage",
-        anticipatePin: 1,
-      },
-    });
+    if (isMobile) {
+      /* على الموبايل: تشغيل سينمائي تلقائي فوري عند فتح الصفحة بدون قفل الشاشة (No Scroll-Lock Lag) */
+      const mobileTl = gsap.timeline({
+        delay: 0.25,
+        defaults: { ease: "power1.inOut" },
+      });
 
-    heroTl
-      // إشارة التمرير تختفي أول ما نتحرك
-      .to(".hero__cue", { autoAlpha: 0, duration: 0.05 }, 0)
-      // الخيط ينرسم والنقطة تسافر عليه
-      .to(thread, { strokeDashoffset: 0, duration: 0.75 }, 0)
-      .to(
-        dot,
-        {
-          motionPath: { path: thread, align: thread, alignOrigin: [0.5, 0.5] },
-          duration: 0.75,
+      mobileTl
+        // الخيط ينرسم والنقطة تسافر عليه
+        .to(thread, { strokeDashoffset: 0, duration: 1.4, ease: "power1.inOut" }, 0)
+        .to(
+          dot,
+          {
+            motionPath: { path: thread, align: thread, alignOrigin: [0.5, 0.5] },
+            duration: 1.4,
+            ease: "power1.inOut",
+          },
+          0
+        );
+
+      // المعيّنات تضوّي لما النقطة تعبرها
+      MILESTONE_FRACTIONS.forEach((f, i) => {
+        mobileTl.to(
+          milestoneEls[i],
+          { scale: 1.15, opacity: 1, fill: GOLD, duration: 0.2, ease: "back.out(2)" },
+          1.4 * f
+        );
+      });
+
+      mobileTl
+        // لحظة الوصول: النقطة تنزل بقلب الحرف — «ح» يكتمل ويصير «ج»
+        .fromTo(
+          ".dot-core",
+          { scale: dotScale },
+          { scale: dotScale * 1.35, duration: 0.2, ease: "power2.out", yoyo: true, repeat: 1 },
+          1.4
+        )
+        .fromTo(
+          ".dot-glow",
+          { opacity: 0.85, scale: dotScale * 0.4 },
+          { opacity: 0, scale: dotScale * 2.2, duration: 0.55, ease: "power1.out" },
+          1.4
+        )
+        // وقفة واضحة ليرى الزائر حرف «ج» المكتمل ثم يتراجع كعلامة مائية
+        .to(".hero__svg", { autoAlpha: 0.08, scale: 1.12, duration: 0.7, ease: "power2.inOut" }, 1.95)
+        // ظهور العنوان والشعار والوصف
+        .fromTo(
+          ".hero__wordmark",
+          { y: 40, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.6, ease: "power2.out" },
+          2.15
+        )
+        .fromTo(
+          ".hero__tagline",
+          { y: 25, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.5, ease: "power2.out" },
+          2.35
+        )
+        .fromTo(
+          ".hero__sub",
+          { y: 20, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.5, ease: "power2.out" },
+          2.5
+        )
+        .fromTo(
+          ".hero__cue",
+          { autoAlpha: 0, y: 15 },
+          { autoAlpha: 1, y: 0, duration: 0.5, ease: "power2.out" },
+          2.7
+        );
+
+      // إذا قام المستخدم بالتمرير فوراً قبل اكتمال المشهد، يتم تسريع الأنميشن فوراً حتى يظهر المحتوى ولا ينتظر
+      const onMobileScroll = () => {
+        if (mobileTl.progress() < 0.85) {
+          mobileTl.timeScale(2.8);
+        }
+        window.removeEventListener("scroll", onMobileScroll);
+      };
+      window.addEventListener("scroll", onMobileScroll, { passive: true });
+
+    } else {
+      /* على شاشات الديسكتوب: مشهد تفاعلي مربوط بعجلة الماوس والتمرير */
+      const heroTl = gsap.timeline({
+        defaults: { ease: "none" },
+        scrollTrigger: {
+          trigger: ".hero",
+          start: "top top",
+          end: "+=55%",
+          scrub: 0.1,
+          pin: ".hero__stage",
+          anticipatePin: 1,
         },
-        0
-      );
+      });
 
-    // المعيّنات تضوّي لما النقطة تعبرها
-    MILESTONE_FRACTIONS.forEach((f, i) => {
-      heroTl.to(
-        milestoneEls[i],
-        { scale: 1, opacity: 1, fill: GOLD, duration: 0.04, ease: "back.out(2.5)" },
-        0.75 * f - 0.02
-      );
-    });
+      heroTl
+        // إشارة التمرير تختفي أول ما نتحرك
+        .to(".hero__cue", { autoAlpha: 0, duration: 0.05 }, 0)
+        // الخيط ينرسم والنقطة تسافر عليه
+        .to(thread, { strokeDashoffset: 0, duration: 0.75 }, 0)
+        .to(
+          dot,
+          {
+            motionPath: { path: thread, align: thread, alignOrigin: [0.5, 0.5] },
+            duration: 0.75,
+          },
+          0
+        );
 
-    heroTl
-      // لحظة الوصول: النقطة المعيّنة تنحط بمكانها — الحرف يكتمل ويصير «ج»
-      .fromTo(
-        ".dot-core",
-        { scale: dotScale },
-        { scale: dotScale * 1.22, duration: 0.02, ease: "power2.out", yoyo: true, repeat: 1 },
-        0.75
-      )
-      .fromTo(
-        ".dot-glow",
-        { opacity: 0.7, scale: dotScale * 0.4 },
-        { opacity: 0, scale: dotScale * 1.7, duration: 0.09, ease: "power1.out" },
-        0.75
-      )
-      // الحرف المكتمل يرجع للخلفية — يصير «الحرف الشاهد»
-      .to(".hero__svg", { autoAlpha: 0.08, scale: 1.15, duration: 0.12, ease: "power1.inOut" }, 0.84)
-      // الاسم الكامل يظهر
-      .fromTo(
-        ".hero__wordmark",
-        { y: 80, autoAlpha: 0 },
-        { y: 0, autoAlpha: 1, duration: 0.1, ease: "power2.out" },
-        0.86
-      )
-      .fromTo(
-        ".hero__tagline",
-        { y: 40, autoAlpha: 0 },
-        { y: 0, autoAlpha: 1, duration: 0.08, ease: "power2.out" },
-        0.9
-      )
-      .fromTo(
-        ".hero__sub",
-        { y: 30, autoAlpha: 0 },
-        { y: 0, autoAlpha: 1, duration: 0.07, ease: "power2.out" },
-        0.93
-      );
+      // المعيّنات تضوّي لما النقطة تعبرها
+      MILESTONE_FRACTIONS.forEach((f, i) => {
+        heroTl.to(
+          milestoneEls[i],
+          { scale: 1, opacity: 1, fill: GOLD, duration: 0.04, ease: "back.out(2.5)" },
+          0.75 * f - 0.02
+        );
+      });
+
+      heroTl
+        // لحظة الوصول: النقطة المعيّنة تنحط بمكانها — الحرف يكتمل ويصير «ج»
+        .fromTo(
+          ".dot-core",
+          { scale: dotScale },
+          { scale: dotScale * 1.22, duration: 0.02, ease: "power2.out", yoyo: true, repeat: 1 },
+          0.75
+        )
+        .fromTo(
+          ".dot-glow",
+          { opacity: 0.7, scale: dotScale * 0.4 },
+          { opacity: 0, scale: dotScale * 1.7, duration: 0.09, ease: "power1.out" },
+          0.75
+        )
+        // الحرف المكتمل يرجع للخلفية — يصير «الحرف الشاهد»
+        .to(".hero__svg", { autoAlpha: 0.08, scale: 1.15, duration: 0.12, ease: "power1.inOut" }, 0.84)
+        // الاسم الكامل يظهر
+        .fromTo(
+          ".hero__wordmark",
+          { y: 80, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.1, ease: "power2.out" },
+          0.86
+        )
+        .fromTo(
+          ".hero__tagline",
+          { y: 40, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.08, ease: "power2.out" },
+          0.9
+        )
+        .fromTo(
+          ".hero__sub",
+          { y: 30, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.07, ease: "power2.out" },
+          0.93
+        );
+    }
   }
 );
 
