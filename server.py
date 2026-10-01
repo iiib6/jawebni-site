@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from werkzeug.middleware.proxy_fix import ProxyFix
 import urllib.request
 import json
 import os
@@ -19,50 +20,15 @@ from contextlib import contextmanager
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
-# 🛡️ 1. Hard Request Body Limit (2MB) - Prevents memory exhaustion DoS
+# 🛡️ 1. Werkzeug ProxyFix: Trust exactly 1 reverse proxy hop (Render / Cloudflare)
+# Replaces request.remote_addr with the true client IP appended by the proxy,
+# completely ignoring any spoofed X-Forwarded-For headers injected by the attacker.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+# 🛡️ 2. Hard Request Body Limit (2MB) - Prevents memory exhaustion DoS
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
 
-# 🛡️ 2. Safe & Bounded Rate Limiting + IP Validation
-IP_REGEX = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
-RATE_LIMIT_LIMIT = 20
-RATE_LIMIT_WINDOW = 60  # seconds
-ip_requests = {}  # key: [timestamps]
-MAX_RATE_LIMITER_KEYS = 5000
-
-def get_client_ip():
-    """Extract and validate client IP safely without trusting arbitrary forged headers"""
-    cf_ip = request.headers.get("CF-Connecting-IP", "").strip()
-    if cf_ip and IP_REGEX.match(cf_ip):
-        return cf_ip
-        
-    forwarded = request.headers.get("X-Forwarded-For", "").strip()
-    if forwarded:
-        first_ip = forwarded.split(",")[0].strip()
-        if IP_REGEX.match(first_ip):
-            return first_ip
-            
-    return request.remote_addr or "127.0.0.1"
-
-def is_rate_limited(key, limit=RATE_LIMIT_LIMIT, window=RATE_LIMIT_WINDOW):
-    now = time.time()
-    
-    # Bound memory: prune expired keys if dictionary grows large
-    if len(ip_requests) > MAX_RATE_LIMITER_KEYS:
-        expired = [k for k, ts in ip_requests.items() if not ts or now - ts[-1] > window]
-        for k in expired[:1000]:
-            ip_requests.pop(k, None)
-
-    if key not in ip_requests:
-        ip_requests[key] = []
-    ip_requests[key] = [t for t in ip_requests[key] if now - t < window]
-    
-    if len(ip_requests[key]) >= limit:
-        return True
-    
-    ip_requests[key].append(now)
-    return False
-
-# 🛡️ 3. Safe Environment Loading & Dynamic Credentials
+# 🛡️ 3. Safe Environment Loading
 def load_env():
     env_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), ".env")
     if os.path.exists(env_path):
@@ -80,16 +46,73 @@ load_env()
 
 ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", "admin").strip()
 ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS")
+
+# If running on Render or with production database, ADMIN_PASS MUST be explicitly configured
 if not ADMIN_DEFAULT_PASS:
-    # If no password is set in .env or Render environment, generate a strong cryptographically secure key
-    ADMIN_DEFAULT_PASS = secrets.token_urlsafe(24)
-    print(f"⚠️ SECURITY WARNING: ADMIN_PASS was not set! Generated temporary password: {ADMIN_DEFAULT_PASS}", file=sys.stderr)
+    if os.environ.get("RENDER") or os.environ.get("DATABASE_URL"):
+        print("❌ CRITICAL CONFIGURATION ERROR: ADMIN_PASS environment variable must be set in production!", file=sys.stderr)
+        sys.exit(1)
+    else:
+        # Local development fallback
+        ADMIN_DEFAULT_PASS = "aabbddaA1"
 else:
     ADMIN_DEFAULT_PASS = ADMIN_DEFAULT_PASS.strip()
 
 ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", "aboody.alfaloje20@gmail.com").strip()
 
-# 🛡️ 4. Leak-Proof Database Architecture (Connection Pooling + Context Manager)
+# 🛡️ 4. Robust & Bounded Rate Limiting
+RATE_LIMIT_LIMIT = 20
+RATE_LIMIT_WINDOW = 60  # seconds
+ip_requests = {}  # key: [timestamps]
+MAX_RATE_LIMITER_KEYS = 5000
+
+def get_client_ip():
+    """
+    Returns the real client IP validated by Werkzeug ProxyFix.
+    Cannot be spoofed by custom client headers.
+    """
+    return request.remote_addr or "127.0.0.1"
+
+def is_rate_limited(key, limit=RATE_LIMIT_LIMIT, window=RATE_LIMIT_WINDOW):
+    now = time.time()
+    
+    # Strictly enforce memory limit: if dict has 5000+ keys, prune
+    if len(ip_requests) >= MAX_RATE_LIMITER_KEYS:
+        # 1. Prune expired
+        expired = [k for k, ts in ip_requests.items() if not ts or now - ts[-1] > window]
+        for k in expired:
+            ip_requests.pop(k, None)
+            
+        # 2. If still at or above capacity, drop oldest 1000 keys unconditionally (FIFO eviction)
+        if len(ip_requests) >= MAX_RATE_LIMITER_KEYS:
+            keys_to_drop = list(ip_requests.keys())[:1000]
+            for k in keys_to_drop:
+                ip_requests.pop(k, None)
+
+    if key not in ip_requests:
+        ip_requests[key] = []
+    ip_requests[key] = [t for t in ip_requests[key] if now - t < window]
+    
+    if len(ip_requests[key]) >= limit:
+        return True
+    
+    ip_requests[key].append(now)
+    return False
+
+# 🛡️ 5. Non-ASCII Safe Constant-Time Comparison
+def safe_compare(val1, val2):
+    """
+    Constant-time comparison protected against non-ASCII UnicodeEncodeError / exceptions.
+    Prevents timing attacks while gracefully returning False for non-matching or invalid inputs.
+    """
+    try:
+        if not isinstance(val1, str) or not isinstance(val2, str):
+            return False
+        return secrets.compare_digest(val1.encode('utf-8'), val2.encode('utf-8'))
+    except Exception:
+        return False
+
+# 🛡️ 6. Leak-Proof Database Architecture (Connection Pooling + Context Manager)
 _pg_pool = None
 
 def get_pg_pool():
@@ -268,7 +291,7 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 def index():
     return app.send_static_file('index.html')
 
-# 🛡️ 5. Google Vertex AI / Service Account Setup
+# 🛡️ 7. Google Vertex AI / Service Account Setup
 SA_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "service_account.json")
 creds = None
 sa_data = None
@@ -309,7 +332,7 @@ def get_sa_token():
             print("Failed to refresh token:", str(e), file=sys.stderr)
     return None
 
-# 🛡️ 6. Hardened AI Chat Endpoint
+# 🛡️ 8. Hardened AI Chat Endpoint
 @app.route('/api/chat', methods=['POST'])
 def chat():
     client_ip = get_client_ip()
@@ -323,7 +346,7 @@ def chat():
 
     client_payload = request.get_json(silent=True) or {}
     
-    # 🛡️ Validate & Sanitize contents (prevent prompt inflation / DoS)
+    # Validate & Sanitize contents (prevent prompt inflation / DoS)
     raw_contents = client_payload.get("contents", [])
     if not isinstance(raw_contents, list):
         return jsonify({"error": "Invalid contents format"}), 400
@@ -350,7 +373,7 @@ def chat():
     if not sanitized_contents:
         return jsonify({"error": "No valid messages provided"}), 400
 
-    # 🛡️ Force Clamp Tokens to prevent resource draining
+    # Force Clamp Tokens to prevent resource draining
     raw_max_tokens = client_payload.get("generationConfig", {}).get("maxOutputTokens", 800)
     try:
         clamped_tokens = min(max(int(raw_max_tokens), 50), 1000)
@@ -363,7 +386,6 @@ def chat():
         "maxOutputTokens": clamped_tokens
     }
 
-    # Validate system instruction if passed
     raw_sys = client_payload.get("systemInstruction", {})
     sanitized_sys = {}
     if isinstance(raw_sys, dict) and "parts" in raw_sys and isinstance(raw_sys["parts"], list):
@@ -443,7 +465,7 @@ def chat():
                 
     return jsonify({"error": "حدث خطأ في معالجة الرد، يرجى المحاولة لاحقاً."}), 500
 
-# 🛡️ 7. Sanitized Email & Webhook Notifications (XSS & Injection Proof)
+# 🛡️ 9. Sanitized Email & Webhook Notifications
 def safe_print(*args, **kwargs):
     try:
         print(*args, **kwargs)
@@ -458,12 +480,16 @@ def send_lead_email(lead_data):
     smtp_user = os.environ.get("SMTP_USER", "").strip()
     smtp_pass = os.environ.get("SMTP_PASS", "").strip()
     
-    # 🛡️ Strict HTML escaping on all fields to prevent email HTML injection
-    name = html.escape(str(lead_data.get("name", "غير محدد"))[:100])
-    raw_phone = str(lead_data.get("phone", "غير محدد"))[:40]
+    # Raw values stripped of newlines for email Subject (prevents CRLF header injection)
+    raw_name = str(lead_data.get("name", "غير محدد"))[:100].replace("\r", "").replace("\n", "").strip()
+    raw_phone = str(lead_data.get("phone", "غير محدد"))[:40].replace("\r", "").replace("\n", "").strip()
+    
+    # HTML-escaped values for the email body
+    name = html.escape(raw_name)
     phone = html.escape(raw_phone)
     biz_name = html.escape(str(lead_data.get("business_name", "غير محدد"))[:100])
     biz_type = html.escape(str(lead_data.get("business_type", "استشارة عامة"))[:100])
+    email = html.escape(str(lead_data.get("email", "غير محدد"))[:100])
     
     # Filter phone to digits only for WhatsApp link
     clean_phone = re.sub(r'[^0-9]', '', raw_phone)
@@ -496,6 +522,14 @@ def send_lead_email(lead_data):
             <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">اسم المشروع / النشاط:</td>
             <td style="padding: 10px; border: 1px solid #E2D9C6; font-weight: bold; color: #22392B;">{biz_name}</td>
           </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">نوع الطلب / الاستشارة:</td>
+            <td style="padding: 10px; border: 1px solid #E2D9C6;">{biz_type}</td>
+          </tr>
+          <tr style="background-color: #F6F2E9;">
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">البريد الإلكتروني:</td>
+            <td style="padding: 10px; border: 1px solid #E2D9C6;">{email}</td>
+          </tr>
         </table>
         
         <div style="background-color: #22392B; color: #F6F2E9; padding: 12px 18px; border-radius: 10px; text-align: center; margin-top: 20px;">
@@ -523,7 +557,8 @@ def send_lead_email(lead_data):
     # 2. Secondary: SMTP Fallback
     if smtp_user and smtp_pass:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"🔥 طلب تسعيرة واستشارة جديدة: {name} - {phone}"
+        # Raw name and phone in Subject (never HTML-escaped entities like &amp;)
+        msg["Subject"] = f"🔥 طلب تسعيرة واستشارة جديدة: {raw_name} - {raw_phone}"
         msg["From"] = f"جاوبني <{smtp_user}>"
         msg["To"] = ADMIN_NOTIFICATION_EMAIL
         msg.attach(MIMEText(html_body, "html", "utf-8"))
@@ -546,10 +581,11 @@ def send_lead_email(lead_data):
                 server.sendmail(smtp_user, ADMIN_NOTIFICATION_EMAIL, msg.as_string())
                 server.quit()
                 safe_print(f"Email notification successfully sent via TLS (587) to {ADMIN_NOTIFICATION_EMAIL}")
+                sent = True
             except Exception as e:
                 safe_print(f"Failed to send email notification on both 465 and 587: {str(e)}", file=sys.stderr)
 
-# 🛡️ 8. Hardened Leads Creation API
+# 🛡️ 10. Hardened Leads Creation API
 @app.route('/api/leads', methods=['POST'])
 def save_lead():
     client_ip = get_client_ip()
@@ -593,7 +629,7 @@ def save_lead():
         print("Failed to save lead to database:", str(e), file=sys.stderr)
         return jsonify({"error": "حدث خطأ أثناء حفظ البيانات."}), 500
 
-# 🛡️ 9. Hardened Analytics & Visitor Tracking
+# 🛡️ 11. Hardened Analytics & Visitor Tracking
 def parse_user_agent(ua_string, screen_width=None):
     ua = (ua_string or "").lower()
     
@@ -701,7 +737,7 @@ def track_ping():
         print("Track ping error:", str(e), file=sys.stderr)
         return jsonify({"error": "Failed to update ping"}), 500
 
-# 🛡️ 10. Hardened Admin Authentication (Timing-Attack Protected)
+# 🛡️ 12. Hardened Admin Authentication
 def get_admin_creds():
     admin_user = os.environ.get("ADMIN_USER", ADMIN_DEFAULT_USER).strip()
     admin_pass = os.environ.get("ADMIN_PASS", ADMIN_DEFAULT_PASS).strip()
@@ -754,7 +790,7 @@ def admin_blocked():
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
     client_ip = get_client_ip()
-    # 🛡️ Strict Brute-Force Defense: max 5 login attempts per 5 minutes per IP
+    # Strict Brute-Force Defense: max 5 login attempts per 5 minutes per IP
     if is_rate_limited(f"{client_ip}:admin_login", limit=5, window=300):
         return jsonify({"error": "محاولات تسجيل دخول متكررة، يرجى الانتظار 5 دقائق قبل المحاولة مجدداً."}), 429
 
@@ -767,8 +803,8 @@ def admin_login():
     
     admin_user, admin_pass = get_admin_creds()
     
-    # 🛡️ Constant-time digest comparison to prevent timing attacks
-    if secrets.compare_digest(username, admin_user) and secrets.compare_digest(password, admin_pass):
+    # Safe constant-time comparison protected against non-ASCII UnicodeEncodeError / exceptions
+    if safe_compare(username, admin_user) and safe_compare(password, admin_pass):
         token = secrets.token_hex(32)
         expires_at = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
         
@@ -831,7 +867,7 @@ def check_auth():
         return jsonify({"authenticated": True, "username": username})
     return jsonify({"authenticated": False}), 401
 
-# 🛡️ 11. Leak-Free Protected Admin APIs
+# 🛡️ 13. Leak-Free Protected Admin APIs
 @app.route('/api/admin/stats', methods=['GET'])
 @admin_required
 def admin_stats():
@@ -1011,10 +1047,10 @@ def export_leads_csv():
         print("Export CSV error:", str(e), file=sys.stderr)
         return jsonify({"error": "فشل تصدير البيانات."}), 500
 
-# 🛡️ 12. Security Headers & Selective Caching Policy
+# 🛡️ 14. Security Headers & Selective Caching Policy
 @app.after_request
 def add_security_headers(response):
-    # Only dynamic APIs and admin dashboards get no-store
+    # Dynamic APIs and admin dashboards get no-store
     if request.path.startswith('/api/') or request.path in ('/admin.html', '/pathogenesis', '/pathogenesis.html'):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
@@ -1035,7 +1071,7 @@ def add_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         "img-src 'self' data: https:; "
-        "connect-src 'self' https://script.google.com https://aiplatform.googleapis.com https://generativelanguage.googleapis.com; "
+        "connect-src 'self'; "
         "frame-ancestors 'self'; "
         "object-src 'none'; "
         "base-uri 'self';"

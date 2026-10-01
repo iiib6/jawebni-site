@@ -9,5 +9,15 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
-
-
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASS
+        sync: false
+      - key: ADMIN_NOTIFICATION_EMAIL
+        sync: false
+      - key: GOOGLE_WEBHOOK_URL
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false

@@ -760,7 +760,9 @@ if (document.fonts && document.fonts.ready) {
         }
         
         if (successScreenMsg) {
-          successScreenMsg.innerHTML = `أهلاً بك يا <strong>${fullName}</strong>! تم استلام وتثبيت طلبك بنجاح.<br>تم إرسال تفاصيلك لفريقنا وسنتواصل معك عبر الواتساب على الرقم (<strong>${phone}</strong>) فوراً لمناقشة تفاصيل مشروعك وتقديم العرض الأنسب لك.`;
+          const safeName = sanitizeText(fullName);
+          const safePhone = sanitizeText(phone);
+          successScreenMsg.innerHTML = `أهلاً بك يا <strong>${safeName}</strong>! تم استلام وتثبيت طلبك بنجاح.<br>تم إرسال تفاصيلك لفريقنا وسنتواصل معك عبر الواتساب على الرقم (<strong>${safePhone}</strong>) فوراً لمناقشة تفاصيل مشروعك وتقديم العرض الأنسب لك.`;
         }
         
         showScreen("demoSuccessScreen");
