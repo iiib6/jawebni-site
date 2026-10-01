@@ -1130,16 +1130,16 @@
       visitors.forEach(v => {
         const tr = document.createElement('tr');
         const durationText = formatDuration(v.duration_seconds);
-        const depthPct = v.scroll_depth ? `${v.scroll_depth}%` : '0%';
+        const depthPct = v.scroll_depth ? `${parseInt(v.scroll_depth, 10) || 0}%` : '0%';
         const timeFormatted = v.created_at || 'الآن';
 
         tr.innerHTML = `
-          <td><span style="font-size:0.85rem; color:var(--gold-light);">${timeFormatted}</span></td>
-          <td><strong>${v.device_type || 'موبايل'}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${v.browser || 'Chrome'})</span></td>
-          <td><span class="lead-badge">${v.os || 'Android'}</span></td>
-          <td><strong style="color:var(--gold);">${durationText}</strong></td>
-          <td>${depthPct}</td>
-          <td><span style="font-size:0.8rem; color:var(--text-muted);">${v.referrer || 'مباشر'}</span></td>
+          <td><span style="font-size:0.85rem; color:var(--gold-light);">${escapeHtml(timeFormatted)}</span></td>
+          <td><strong>${escapeHtml(v.device_type || 'موبايل')}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${escapeHtml(v.browser || 'Chrome')})</span></td>
+          <td><span class="lead-badge">${escapeHtml(v.os || 'Android')}</span></td>
+          <td><strong style="color:var(--gold);">${escapeHtml(durationText)}</strong></td>
+          <td>${escapeHtml(depthPct)}</td>
+          <td><span style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(v.referrer || 'مباشر')}</span></td>
         `;
         tbody.appendChild(tr);
       });
@@ -1208,30 +1208,34 @@
 
       leads.forEach(lead => {
         const cleanPhone = cleanPhoneForWhatsApp(lead.phone);
+        const safePhone = escapeHtml(lead.phone || '');
+        const safeCleanPhone = encodeURIComponent(cleanPhone);
+        const safeTel = encodeURIComponent(lead.phone || '').replace(/%20/g, '+');
+        const safeLeadId = parseInt(lead.id, 10) || 0;
         const tr = document.createElement('tr');
 
         tr.innerHTML = `
-          <td><strong>${lead.id}</strong></td>
+          <td><strong>${safeLeadId}</strong></td>
           <td>
             <div style="font-weight:700; color:var(--text-main);">${escapeHtml(lead.name)}</div>
             ${lead.email ? `<div style="font-size:0.8rem; color:var(--text-muted);">${escapeHtml(lead.email)}</div>` : ''}
           </td>
           <td>
-            <div style="font-weight:600; direction:ltr; text-align:right; margin-bottom:4px;">${escapeHtml(lead.phone)}</div>
+            <div style="font-weight:600; direction:ltr; text-align:right; margin-bottom:4px;">${safePhone}</div>
             <div class="action-btn-group">
-              <a href="https://wa.me/${cleanPhone}" target="_blank" class="btn-action btn-action--wa" title="مراسلة واتساب">
+              <a href="https://wa.me/${safeCleanPhone}" target="_blank" rel="noopener noreferrer" class="btn-action btn-action--wa" title="مراسلة واتساب">
                 💬 واتساب
               </a>
-              <a href="tel:${lead.phone}" class="btn-action btn-action--call" title="اتصال هاتفي">
+              <a href="tel:${safeTel}" class="btn-action btn-action--call" title="اتصال هاتفي">
                 📞 اتصال
               </a>
             </div>
           </td>
           <td>${escapeHtml(lead.business_name || 'غير محدد')}</td>
           <td><span class="lead-badge">${escapeHtml(lead.business_type || 'استشارة عامة')}</span></td>
-          <td><span style="font-size:0.82rem; color:var(--text-muted);">${lead.created_at}</span></td>
+          <td><span style="font-size:0.82rem; color:var(--text-muted);">${escapeHtml(lead.created_at || '')}</span></td>
           <td>
-            <button class="btn-action btn-action--del" onclick="deleteLead(${lead.id})" title="حذف هذا العميل">
+            <button class="btn-action btn-action--del" onclick="deleteLead(${safeLeadId})" title="حذف هذا العميل">
               🗑️ حذف
             </button>
           </td>

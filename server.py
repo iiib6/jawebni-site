@@ -5,24 +5,53 @@ import os
 import sys
 import time
 import sqlite3
+import re
+import html
+import secrets
+import datetime
+import smtplib
+import csv
+import io
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from functools import wraps
+from contextlib import contextmanager
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
-def get_client_ip():
-    return (
-        request.headers.get("CF-Connecting-IP")
-        or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        or request.remote_addr
-        or "127.0.0.1"
-    )
+# 🛡️ 1. Hard Request Body Limit (2MB) - Prevents memory exhaustion DoS
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
 
-# Robust in-memory rate limiter per IP/action
-RATE_LIMIT_LIMIT = 15
+# 🛡️ 2. Safe & Bounded Rate Limiting + IP Validation
+IP_REGEX = re.compile(r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
+RATE_LIMIT_LIMIT = 20
 RATE_LIMIT_WINDOW = 60  # seconds
 ip_requests = {}  # key: [timestamps]
+MAX_RATE_LIMITER_KEYS = 5000
+
+def get_client_ip():
+    """Extract and validate client IP safely without trusting arbitrary forged headers"""
+    cf_ip = request.headers.get("CF-Connecting-IP", "").strip()
+    if cf_ip and IP_REGEX.match(cf_ip):
+        return cf_ip
+        
+    forwarded = request.headers.get("X-Forwarded-For", "").strip()
+    if forwarded:
+        first_ip = forwarded.split(",")[0].strip()
+        if IP_REGEX.match(first_ip):
+            return first_ip
+            
+    return request.remote_addr or "127.0.0.1"
 
 def is_rate_limited(key, limit=RATE_LIMIT_LIMIT, window=RATE_LIMIT_WINDOW):
     now = time.time()
+    
+    # Bound memory: prune expired keys if dictionary grows large
+    if len(ip_requests) > MAX_RATE_LIMITER_KEYS:
+        expired = [k for k, ts in ip_requests.items() if not ts or now - ts[-1] > window]
+        for k in expired[:1000]:
+            ip_requests.pop(k, None)
+
     if key not in ip_requests:
         ip_requests[key] = []
     ip_requests[key] = [t for t in ip_requests[key] if now - t < window]
@@ -33,15 +62,7 @@ def is_rate_limited(key, limit=RATE_LIMIT_LIMIT, window=RATE_LIMIT_WINDOW):
     ip_requests[key].append(now)
     return False
 
-import secrets
-import datetime
-from functools import wraps
-
-ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS", "aabbddaA1")
-ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", "aboody.alfaloje20@gmail.com")
-
-# Zero-dependency manual .env loader
+# 🛡️ 3. Safe Environment Loading & Dynamic Credentials
 def load_env():
     env_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), ".env")
     if os.path.exists(env_path):
@@ -50,18 +71,25 @@ def load_env():
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:
-                        key, val = line.split("=", 1)
-                        os.environ[key.strip()] = val.strip()
+                        k, v = line.split("=", 1)
+                        os.environ[k.strip()] = v.strip()
         except Exception as e:
             print("Failed to read .env file:", str(e), file=sys.stderr)
 
 load_env()
 
-# Re-read after loading .env
-ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", ADMIN_DEFAULT_USER)
-ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS", ADMIN_DEFAULT_PASS)
-ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", ADMIN_NOTIFICATION_EMAIL)
+ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", "admin").strip()
+ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS")
+if not ADMIN_DEFAULT_PASS:
+    # If no password is set in .env or Render environment, generate a strong cryptographically secure key
+    ADMIN_DEFAULT_PASS = secrets.token_urlsafe(24)
+    print(f"⚠️ SECURITY WARNING: ADMIN_PASS was not set! Generated temporary password: {ADMIN_DEFAULT_PASS}", file=sys.stderr)
+else:
+    ADMIN_DEFAULT_PASS = ADMIN_DEFAULT_PASS.strip()
 
+ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", "aboody.alfaloje20@gmail.com").strip()
+
+# 🛡️ 4. Leak-Proof Database Architecture (Connection Pooling + Context Manager)
 _pg_pool = None
 
 def get_pg_pool():
@@ -151,50 +179,70 @@ def adapt_query(query):
         return query.replace("?", "%s")
     return query
 
+@contextmanager
+def db_session(readonly=False):
+    """
+    100% leak-proof database context manager.
+    Guarantees conn.close() executes in a finally block on ALL paths (errors, returns, exceptions).
+    """
+    conn, cf = get_db()
+    cursor = get_cursor(conn, cf)
+    try:
+        yield conn, cursor
+        if not readonly:
+            conn.commit()
+    except Exception:
+        if not readonly:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        raise
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
 def init_db():
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        
-        id_col = "SERIAL PRIMARY KEY" if is_postgres() else "INTEGER PRIMARY KEY AUTOINCREMENT"
-        
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS leads (
-                id {id_col},
-                name TEXT,
-                phone TEXT,
-                email TEXT,
-                business_name TEXT,
-                business_type TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS visitor_sessions (
-                id {id_col},
-                session_id TEXT UNIQUE,
-                ip TEXT,
-                user_agent TEXT,
-                device_type TEXT,
-                browser TEXT,
-                os TEXT,
-                referrer TEXT,
-                duration_seconds INTEGER DEFAULT 0,
-                scroll_depth INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS admin_tokens (
-                token TEXT PRIMARY KEY,
-                username TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP
-            )
-        """)
-        conn.commit()
-        conn.close()
+        with db_session() as (conn, cursor):
+            id_col = "SERIAL PRIMARY KEY" if is_postgres() else "INTEGER PRIMARY KEY AUTOINCREMENT"
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS leads (
+                    id {id_col},
+                    name TEXT,
+                    phone TEXT,
+                    email TEXT,
+                    business_name TEXT,
+                    business_type TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS visitor_sessions (
+                    id {id_col},
+                    session_id TEXT UNIQUE,
+                    ip TEXT,
+                    user_agent TEXT,
+                    device_type TEXT,
+                    browser TEXT,
+                    os TEXT,
+                    referrer TEXT,
+                    duration_seconds INTEGER DEFAULT 0,
+                    scroll_depth INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admin_tokens (
+                    token TEXT PRIMARY KEY,
+                    username TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP
+                )
+            """)
         db_type = "PostgreSQL Cloud Database" if is_postgres() else "SQLite (leads.db)"
         print(f"Database tables initialized successfully ({db_type}).")
         cleanup_old_records()
@@ -202,17 +250,14 @@ def init_db():
         print("Failed to initialize database:", str(e), file=sys.stderr)
 
 def cleanup_old_records():
-    """Periodically cleans up expired tokens and sessions older than 60 days to prevent bloat"""
+    """Periodically cleans up expired tokens and sessions older than 30 days to prevent bloat"""
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute(adapt_query("DELETE FROM admin_tokens WHERE expires_at < CURRENT_TIMESTAMP"))
-        if is_postgres():
-            cursor.execute("DELETE FROM visitor_sessions WHERE created_at < NOW() - INTERVAL '60 days'")
-        else:
-            cursor.execute("DELETE FROM visitor_sessions WHERE created_at < datetime('now', '-60 days')")
-        conn.commit()
-        conn.close()
+        with db_session() as (conn, cursor):
+            cursor.execute(adapt_query("DELETE FROM admin_tokens WHERE expires_at < CURRENT_TIMESTAMP"))
+            if is_postgres():
+                cursor.execute("DELETE FROM visitor_sessions WHERE created_at < NOW() - INTERVAL '30 days'")
+            else:
+                cursor.execute("DELETE FROM visitor_sessions WHERE created_at < datetime('now', '-30 days')")
     except Exception as e:
         print("DB cleanup exception (ignored):", str(e), file=sys.stderr)
 
@@ -223,7 +268,7 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 def index():
     return app.send_static_file('index.html')
 
-# Service Account / Vertex AI Authentication setup
+# 🛡️ 5. Google Vertex AI / Service Account Setup
 SA_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "service_account.json")
 creds = None
 sa_data = None
@@ -264,38 +309,82 @@ def get_sa_token():
             print("Failed to refresh token:", str(e), file=sys.stderr)
     return None
 
+# 🛡️ 6. Hardened AI Chat Endpoint
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    # 1. Rate limiting check (Max 10 AI chat messages per minute per IP)
     client_ip = get_client_ip()
-    if is_rate_limited(f"{client_ip}:chat", limit=10, window=60):
+    if is_rate_limited(f"{client_ip}:chat", limit=12, window=60):
         return jsonify({
             "error": "لقد تجاوزت حد الطلبات المسموح به للدردشة. يرجى الانتظار دقيقة قبل المحاولة مجدداً."
         }), 429
 
-    client_payload = request.json or {}
+    if not request.is_json:
+        return jsonify({"error": "Invalid Content-Type"}), 400
+
+    client_payload = request.get_json(silent=True) or {}
     
-    gen_config = client_payload.get("generationConfig", {})
-    if "thinkingConfig" not in gen_config:
-        gen_config["thinkingConfig"] = {"thinkingBudget": 0}
-    if "temperature" not in gen_config:
-        gen_config["temperature"] = 0.7
-    if "maxOutputTokens" not in gen_config:
-        gen_config["maxOutputTokens"] = 1000
+    # 🛡️ Validate & Sanitize contents (prevent prompt inflation / DoS)
+    raw_contents = client_payload.get("contents", [])
+    if not isinstance(raw_contents, list):
+        return jsonify({"error": "Invalid contents format"}), 400
+    if len(raw_contents) > 25:
+        raw_contents = raw_contents[-25:]  # Bound history length
+        
+    sanitized_contents = []
+    for item in raw_contents:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role", "user")
+        if role not in ("user", "model"):
+            role = "user"
+        parts = item.get("parts", [])
+        if not isinstance(parts, list):
+            continue
+        clean_parts = []
+        for p in parts:
+            if isinstance(p, dict) and "text" in p:
+                clean_parts.append({"text": str(p["text"])[:3000]})
+        if clean_parts:
+            sanitized_contents.append({"role": role, "parts": clean_parts})
+            
+    if not sanitized_contents:
+        return jsonify({"error": "No valid messages provided"}), 400
+
+    # 🛡️ Force Clamp Tokens to prevent resource draining
+    raw_max_tokens = client_payload.get("generationConfig", {}).get("maxOutputTokens", 800)
+    try:
+        clamped_tokens = min(max(int(raw_max_tokens), 50), 1000)
+    except (ValueError, TypeError):
+        clamped_tokens = 800
+
+    gen_config = {
+        "thinkingConfig": {"thinkingBudget": 0},
+        "temperature": 0.7,
+        "maxOutputTokens": clamped_tokens
+    }
+
+    # Validate system instruction if passed
+    raw_sys = client_payload.get("systemInstruction", {})
+    sanitized_sys = {}
+    if isinstance(raw_sys, dict) and "parts" in raw_sys and isinstance(raw_sys["parts"], list):
+        sys_parts = []
+        for p in raw_sys["parts"]:
+            if isinstance(p, dict) and "text" in p:
+                sys_parts.append({"text": str(p["text"])[:3500]})
+        if sys_parts:
+            sanitized_sys = {"parts": sys_parts}
 
     req_payload = {
-        "contents": client_payload.get("contents", []),
-        "systemInstruction": client_payload.get("systemInstruction", {}),
+        "contents": sanitized_contents,
+        "systemInstruction": sanitized_sys,
         "generationConfig": gen_config
     }
 
-    # 2. Try Service Account with Vertex AI first
+    # 1. Try Vertex AI first (Service Account)
     token = get_sa_token()
     if token and sa_data:
         import requests
         project = sa_data.get("project_id", "gen-lang-client-0148309017")
-        
-        # Vertex AI Model endpoints: Primary = gemini-3.8-flash, Fallback = gemini-3.1-flash-lite
         vertex_models = [
             ("gemini-3.8-flash", "global"),
             ("gemini-3.1-flash-lite", "global"),
@@ -314,7 +403,6 @@ def chat():
                 else:
                     url = f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent"
                     
-                # Snappy timeout: 6s for 3.8-flash to prevent mobile chat lag, 12s for fast fallbacks
                 t_out = 6 if "3.8" in model else 12
                 r = requests.post(url, headers=headers, json=req_payload, timeout=t_out)
                 if r.status_code == 200:
@@ -326,7 +414,7 @@ def chat():
             except Exception as e:
                 print(f"Vertex AI request exception for {model}: {str(e)}", file=sys.stderr)
 
-    # 3. Fallback to Gemini API Key if available
+    # 2. Fallback to Gemini API Key
     if API_KEY:
         models = [
             "gemini-3.8-flash",
@@ -344,7 +432,7 @@ def chat():
                     headers={"Content-Type": "application/json"}, 
                     method="POST"
                 )
-                with urllib.request.urlopen(req) as response:
+                with urllib.request.urlopen(req, timeout=12) as response:
                     res_body = response.read().decode('utf-8')
                     result = json.loads(res_body)
                     result["_model_used"] = f"Gemini API: {model}"
@@ -355,12 +443,7 @@ def chat():
                 
     return jsonify({"error": "حدث خطأ في معالجة الرد، يرجى المحاولة لاحقاً."}), 500
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-ADMIN_NOTIFICATION_EMAIL = "aboody.alfaloje20@gmail.com"
-
+# 🛡️ 7. Sanitized Email & Webhook Notifications (XSS & Injection Proof)
 def safe_print(*args, **kwargs):
     try:
         print(*args, **kwargs)
@@ -375,18 +458,19 @@ def send_lead_email(lead_data):
     smtp_user = os.environ.get("SMTP_USER", "").strip()
     smtp_pass = os.environ.get("SMTP_PASS", "").strip()
     
-    name = lead_data.get("name", "غير محدد")
-    phone = lead_data.get("phone", "غير محدد")
-    biz_name = lead_data.get("business_name", "غير محدد")
-    biz_type = lead_data.get("business_type", "استشارة عامة")
-    email = lead_data.get("email", "غير محدد")
+    # 🛡️ Strict HTML escaping on all fields to prevent email HTML injection
+    name = html.escape(str(lead_data.get("name", "غير محدد"))[:100])
+    raw_phone = str(lead_data.get("phone", "غير محدد"))[:40]
+    phone = html.escape(raw_phone)
+    biz_name = html.escape(str(lead_data.get("business_name", "غير محدد"))[:100])
+    biz_type = html.escape(str(lead_data.get("business_type", "استشارة عامة"))[:100])
     
-    # Format WhatsApp URL
-    clean_phone = "".join(filter(str.isdigit, phone))
+    # Filter phone to digits only for WhatsApp link
+    clean_phone = re.sub(r'[^0-9]', '', raw_phone)
     if clean_phone.startswith("07"):
         clean_phone = "964" + clean_phone[1:]
     
-    html = f"""
+    html_body = f"""
     <!DOCTYPE html>
     <html dir="rtl" lang="ar">
     <head><meta charset="utf-8"></head>
@@ -403,7 +487,7 @@ def send_lead_email(lead_data):
           <tr>
             <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">رقم الهاتف:</td>
             <td style="padding: 10px; border: 1px solid #E2D9C6;">
-              <a href="tel:{phone}" style="color: #22392B; font-weight: bold; text-decoration: none;">{phone}</a>
+              <a href="tel:{clean_phone}" style="color: #22392B; font-weight: bold; text-decoration: none;">{phone}</a>
               &nbsp;|&nbsp;
               <a href="https://wa.me/{clean_phone}" style="color: #25D366; font-weight: bold; text-decoration: none;">💬 فتح بالواتساب</a>
             </td>
@@ -422,26 +506,27 @@ def send_lead_email(lead_data):
     </html>
     """
     
-    # 1. Primary Method: Google Apps Script Webhook (100% reliable on Render, uses port 443)
-    GOOGLE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyySbR7dOIUfLlF_xoIaxiAUCZvzUAarzA9FBDV2oS04Jb7S4f6g1un_OMeEtIYYskC/exec"
+    # 1. Primary: Google Apps Script Webhook
+    webhook_url = os.environ.get(
+        "GOOGLE_WEBHOOK_URL",
+        "https://script.google.com/macros/s/AKfycbyySbR7dOIUfLlF_xoIaxiAUCZvzUAarzA9FBDV2oS04Jb7S4f6g1un_OMeEtIYYskC/exec"
+    )
     try:
         import requests
-        res = requests.post(GOOGLE_WEBHOOK_URL, json=lead_data, timeout=12)
+        res = requests.post(webhook_url, json=lead_data, timeout=10)
         if res.status_code == 200:
-            safe_print(f"Lead email successfully dispatched via Google Apps Script Webhook to {ADMIN_NOTIFICATION_EMAIL}")
+            safe_print(f"Lead email successfully dispatched via Webhook to {ADMIN_NOTIFICATION_EMAIL}")
             return
     except Exception as e:
         safe_print(f"Google Webhook attempt failed: {str(e)}, trying direct SMTP fallback...", file=sys.stderr)
 
-    # 2. Secondary Method: SMTP Fallback
+    # 2. Secondary: SMTP Fallback
     if smtp_user and smtp_pass:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"🔥 طلب تسعيرة واستشارة جديدة: {name} - {phone}"
         msg["From"] = f"جاوبني <{smtp_user}>"
         msg["To"] = ADMIN_NOTIFICATION_EMAIL
-        
-        part = MIMEText(html, "html", "utf-8")
-        msg.attach(part)
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
         
         sent = False
         try:
@@ -461,55 +546,57 @@ def send_lead_email(lead_data):
                 server.sendmail(smtp_user, ADMIN_NOTIFICATION_EMAIL, msg.as_string())
                 server.quit()
                 safe_print(f"Email notification successfully sent via TLS (587) to {ADMIN_NOTIFICATION_EMAIL}")
-                sent = True
             except Exception as e:
                 safe_print(f"Failed to send email notification on both 465 and 587: {str(e)}", file=sys.stderr)
-    else:
-        safe_print(f"[Lead Recorded]: Destination: {ADMIN_NOTIFICATION_EMAIL}")
 
+# 🛡️ 8. Hardened Leads Creation API
 @app.route('/api/leads', methods=['POST'])
 def save_lead():
     client_ip = get_client_ip()
     if is_rate_limited(f"{client_ip}:lead", limit=5, window=60):
         return jsonify({"error": "تم تسجيل عدة محاولات في وقت قصير، يرجى الانتظار دقيقة قبل إعادة المحاولة."}), 429
 
-    data = request.json or {}
-    name = data.get("name", "").strip()
-    phone = data.get("phone", "").strip()
-    email = data.get("email", "").strip()
-    business_name = data.get("business_name", "").strip()
-    business_type = data.get("business_type", "").strip()
+    if not request.is_json:
+        return jsonify({"error": "Invalid Content-Type"}), 400
+
+    data = request.get_json(silent=True) or {}
+    name = str(data.get("name", "")).strip()[:100]
+    phone = str(data.get("phone", "")).strip()[:40]
+    email = str(data.get("email", "")).strip()[:100]
+    business_name = str(data.get("business_name", "")).strip()[:100]
+    business_type = str(data.get("business_type", "")).strip()[:100]
     
     if not name or (not phone and not email):
         return jsonify({"error": "الرجاء إدخال الاسم الثلاثي ورقم الهاتف للتواصل."}), 400
         
+    digits = re.sub(r'[^0-9]', '', phone)
+    if phone and len(digits) < 8:
+        return jsonify({"error": "يرجى إدخال رقم هاتف صحيح."}), 400
+        
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute(adapt_query("""
-            INSERT INTO leads (name, phone, email, business_name, business_type)
-            VALUES (?, ?, ?, ?, ?)
-        """), (name, phone, email, business_name, business_type))
-        conn.commit()
-        conn.close()
+        with db_session() as (conn, cursor):
+            cursor.execute(adapt_query("""
+                INSERT INTO leads (name, phone, email, business_name, business_type)
+                VALUES (?, ?, ?, ?, ?)
+            """), (name, phone, email, business_name, business_type))
+            
         print("Lead saved successfully.")
-        
-        # Send Email notification
-        send_lead_email(data)
-        
+        send_lead_email({
+            "name": name,
+            "phone": phone,
+            "email": email,
+            "business_name": business_name,
+            "business_type": business_type
+        })
         return jsonify({"success": True, "message": "تم استلام وتثبيت حجزك بنجاح! سنتواصل معك قريباً."})
     except Exception as e:
         print("Failed to save lead to database:", str(e), file=sys.stderr)
         return jsonify({"error": "حدث خطأ أثناء حفظ البيانات."}), 500
 
-# ==========================================
-# 📊 Analytics & Visitor Tracking System
-# ==========================================
-
+# 🛡️ 9. Hardened Analytics & Visitor Tracking
 def parse_user_agent(ua_string, screen_width=None):
     ua = (ua_string or "").lower()
     
-    # Device Detection
     device = "حاسوب (Desktop)"
     if "mobi" in ua or "iphone" in ua or "android" in ua and "tablet" not in ua:
         device = "موبايل (Mobile)"
@@ -518,7 +605,6 @@ def parse_user_agent(ua_string, screen_width=None):
     elif screen_width and screen_width < 768:
         device = "موبايل (Mobile)"
         
-    # OS Detection
     os_name = "أخرى"
     if "iphone" in ua or "ipad" in ua or "ios" in ua:
         os_name = "iOS"
@@ -531,7 +617,6 @@ def parse_user_agent(ua_string, screen_width=None):
     elif "linux" in ua:
         os_name = "Linux"
         
-    # Browser Detection
     browser = "أخرى"
     if "edg" in ua:
         browser = "Edge"
@@ -548,29 +633,36 @@ def parse_user_agent(ua_string, screen_width=None):
 
 @app.route('/api/track/visit', methods=['POST'])
 def track_visit():
-    data = request.json or {}
-    session_id = data.get("session_id", "").strip()
-    if not session_id:
+    client_ip = get_client_ip()
+    if is_rate_limited(f"{client_ip}:track", limit=40, window=60):
+        return jsonify({"error": "Rate limit exceeded"}), 429
+        
+    data = request.get_json(silent=True) or {}
+    raw_session = str(data.get("session_id", "")).strip()
+    if re.match(r'^[a-zA-Z0-9_-]{10,64}$', raw_session):
+        session_id = raw_session
+    else:
         session_id = secrets.token_hex(16)
         
-    referrer = data.get("referrer", "").strip()
+    referrer = str(data.get("referrer", "")).strip()[:250]
     screen_width = data.get("screen_width")
-    raw_ua = request.headers.get("User-Agent", "")
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1").split(",")[0].strip()
-    
+    try:
+        screen_width = int(screen_width) if screen_width else None
+    except (ValueError, TypeError):
+        screen_width = None
+        
+    raw_ua = request.headers.get("User-Agent", "")[:250]
     device, os_name, browser = parse_user_agent(raw_ua, screen_width)
     
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute(adapt_query("""
-            INSERT INTO visitor_sessions (session_id, ip, user_agent, device_type, browser, os, referrer, duration_seconds, scroll_depth, created_at, last_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT(session_id) DO UPDATE SET
-                last_active = CURRENT_TIMESTAMP
-        """), (session_id, ip, raw_ua[:250], device, browser, os_name, referrer[:250]))
-        conn.commit()
-        conn.close()
+        with db_session() as (conn, cursor):
+            cursor.execute(adapt_query("""
+                INSERT INTO visitor_sessions (session_id, ip, user_agent, device_type, browser, os, referrer, duration_seconds, scroll_depth, created_at, last_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    last_active = CURRENT_TIMESTAMP
+            """), (session_id, client_ip, raw_ua, device[:40], browser[:40], os_name[:40], referrer))
+            
         return jsonify({"success": True, "session_id": session_id})
     except Exception as e:
         print("Track visit error:", str(e), file=sys.stderr)
@@ -578,54 +670,55 @@ def track_visit():
 
 @app.route('/api/track/ping', methods=['POST'])
 def track_ping():
-    data = request.json or {}
-    session_id = data.get("session_id", "").strip()
-    if not session_id:
-        return jsonify({"error": "Missing session_id"}), 400
+    client_ip = get_client_ip()
+    if is_rate_limited(f"{client_ip}:ping", limit=60, window=60):
+        return jsonify({"error": "Rate limit exceeded"}), 429
         
-    duration = int(data.get("duration_seconds", 0))
-    scroll_depth = int(data.get("scroll_depth", 0))
+    data = request.get_json(silent=True) or {}
+    session_id = str(data.get("session_id", "")).strip()
+    if not re.match(r'^[a-zA-Z0-9_-]{10,64}$', session_id):
+        return jsonify({"error": "Invalid session_id"}), 400
+        
+    try:
+        duration = max(0, min(86400, int(data.get("duration_seconds", 0))))
+        scroll_depth = max(0, min(100, int(data.get("scroll_depth", 0))))
+    except (ValueError, TypeError):
+        duration = 0
+        scroll_depth = 0
     
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute(adapt_query("""
-            UPDATE visitor_sessions
-            SET duration_seconds = CASE WHEN ? > duration_seconds THEN ? ELSE duration_seconds END,
-                scroll_depth = CASE WHEN ? > scroll_depth THEN ? ELSE scroll_depth END,
-                last_active = CURRENT_TIMESTAMP
-            WHERE session_id = ?
-        """), (duration, duration, scroll_depth, scroll_depth, session_id))
-        conn.commit()
-        conn.close()
+        with db_session() as (conn, cursor):
+            cursor.execute(adapt_query("""
+                UPDATE visitor_sessions
+                SET duration_seconds = CASE WHEN ? > duration_seconds THEN ? ELSE duration_seconds END,
+                    scroll_depth = CASE WHEN ? > scroll_depth THEN ? ELSE scroll_depth END,
+                    last_active = CURRENT_TIMESTAMP
+                WHERE session_id = ?
+            """), (duration, duration, scroll_depth, scroll_depth, session_id))
+            
         return jsonify({"success": True})
     except Exception as e:
         print("Track ping error:", str(e), file=sys.stderr)
         return jsonify({"error": "Failed to update ping"}), 500
 
-# ==========================================
-# 🔒 Admin Authentication & Security
-# ==========================================
-
+# 🛡️ 10. Hardened Admin Authentication (Timing-Attack Protected)
 def get_admin_creds():
     admin_user = os.environ.get("ADMIN_USER", ADMIN_DEFAULT_USER).strip()
     admin_pass = os.environ.get("ADMIN_PASS", ADMIN_DEFAULT_PASS).strip()
     return admin_user, admin_pass
 
 def verify_token(token):
-    if not token:
+    if not token or not isinstance(token, str) or len(token) > 128:
         return None
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute(adapt_query("""
-            SELECT username, expires_at FROM admin_tokens
-            WHERE token = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-        """), (token,))
-        row = cursor.fetchone()
-        conn.close()
-        if row:
-            return row["username"]
+        with db_session(readonly=True) as (conn, cursor):
+            cursor.execute(adapt_query("""
+                SELECT username, expires_at FROM admin_tokens
+                WHERE token = ? AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+            """), (token,))
+            row = cursor.fetchone()
+            if row:
+                return row["username"]
     except Exception as e:
         print("Verify token error:", str(e), file=sys.stderr)
     return None
@@ -633,13 +726,11 @@ def verify_token(token):
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # 1. Check Authorization header
         auth_header = request.headers.get("Authorization", "")
         token = None
         if auth_header.startswith("Bearer "):
             token = auth_header.split(" ", 1)[1].strip()
         
-        # 2. Check Cookie
         if not token:
             token = request.cookies.get("jawebni_admin_token")
             
@@ -663,28 +754,30 @@ def admin_blocked():
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
     client_ip = get_client_ip()
-    if is_rate_limited(f"{client_ip}:admin_login", limit=5, window=60):
-        return jsonify({"error": "محاولات تسجيل دخول متكررة، يرجى الانتظار دقيقة قبل المحاولة مجدداً."}), 429
+    # 🛡️ Strict Brute-Force Defense: max 5 login attempts per 5 minutes per IP
+    if is_rate_limited(f"{client_ip}:admin_login", limit=5, window=300):
+        return jsonify({"error": "محاولات تسجيل دخول متكررة، يرجى الانتظار 5 دقائق قبل المحاولة مجدداً."}), 429
 
-    data = request.json or {}
-    username = data.get("username", "").strip()
-    password = data.get("password", "").strip()
+    if not request.is_json:
+        return jsonify({"error": "Invalid Content-Type"}), 400
+
+    data = request.get_json(silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", "")).strip()
     
     admin_user, admin_pass = get_admin_creds()
     
-    if username == admin_user and password == admin_pass:
+    # 🛡️ Constant-time digest comparison to prevent timing attacks
+    if secrets.compare_digest(username, admin_user) and secrets.compare_digest(password, admin_pass):
         token = secrets.token_hex(32)
         expires_at = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
         
         try:
-            conn, cf = get_db()
-            cursor = get_cursor(conn, cf)
-            cursor.execute(adapt_query("""
-                INSERT INTO admin_tokens (token, username, created_at, expires_at)
-                VALUES (?, ?, CURRENT_TIMESTAMP, ?)
-            """), (token, username, expires_at))
-            conn.commit()
-            conn.close()
+            with db_session() as (conn, cursor):
+                cursor.execute(adapt_query("""
+                    INSERT INTO admin_tokens (token, username, created_at, expires_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+                """), (token, username, expires_at))
             
             res = jsonify({
                 "success": True,
@@ -692,7 +785,6 @@ def admin_login():
                 "token": token,
                 "username": username
             })
-            # Set cookie for 7 days with Secure flag in production/https
             is_https = request.is_secure or request.headers.get("X-Forwarded-Proto") == "https" or bool(os.environ.get("RENDER"))
             res.set_cookie(
                 "jawebni_admin_token",
@@ -718,11 +810,8 @@ def admin_logout():
         
     if token:
         try:
-            conn, cf = get_db()
-            cursor = get_cursor(conn, cf)
-            cursor.execute(adapt_query("DELETE FROM admin_tokens WHERE token = ?"), (token,))
-            conn.commit()
-            conn.close()
+            with db_session() as (conn, cursor):
+                cursor.execute(adapt_query("DELETE FROM admin_tokens WHERE token = ?"), (token,))
         except Exception as e:
             print("Logout DB error:", str(e), file=sys.stderr)
             
@@ -742,148 +831,125 @@ def check_auth():
         return jsonify({"authenticated": True, "username": username})
     return jsonify({"authenticated": False}), 401
 
-# ==========================================
-# 📈 Protected Admin Stats & Management APIs
-# ==========================================
-
+# 🛡️ 11. Leak-Free Protected Admin APIs
 @app.route('/api/admin/stats', methods=['GET'])
 @admin_required
 def admin_stats():
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        
-        # Dialect condition strings
-        active_cond = "last_active >= NOW() - INTERVAL '3 minutes'" if is_postgres() else "last_active >= datetime('now', '-3 minutes')"
-        today_cond = "DATE(created_at) = CURRENT_DATE" if is_postgres() else "DATE(created_at) = DATE('now')"
-        days7_cond = "created_at >= NOW() - INTERVAL '7 days'" if is_postgres() else "created_at >= datetime('now', '-7 days')"
-        days14_cond = "created_at >= NOW() - INTERVAL '14 days'" if is_postgres() else "created_at >= datetime('now', '-14 days')"
-        
-        # 1. Active Now
-        cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {active_cond}")
-        active_now = cursor.fetchone()["count"] or 0
-        
-        # 2. Total Sessions & Unique Visitors
-        cursor.execute("SELECT COUNT(*) as total_sessions, COUNT(DISTINCT ip) as unique_ips FROM visitor_sessions")
-        row = cursor.fetchone()
-        total_sessions = row["total_sessions"] or 0
-        unique_visitors = row["unique_ips"] or 0
-        
-        # 3. Today's visitors
-        cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {today_cond}")
-        visitors_today = cursor.fetchone()["count"] or 0
-        
-        # 4. Last 7 Days visitors
-        cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {days7_cond}")
-        visitors_7d = cursor.fetchone()["count"] or 0
-        
-        # 5. Average Duration & Bounce Rate
-        cursor.execute("""
-            SELECT 
-                AVG(duration_seconds) as avg_duration,
-                SUM(CASE WHEN duration_seconds < 10 THEN 1 ELSE 0 END) as bounces,
-                COUNT(*) as total
-            FROM visitor_sessions
-        """)
-        dur_row = cursor.fetchone()
-        avg_duration = round(float(dur_row["avg_duration"] or 0), 1)
-        bounces = dur_row["bounces"] or 0
-        total_tracked = dur_row["total"] or 0
-        bounce_rate = round((bounces / total_tracked * 100) if total_tracked > 0 else 0, 1)
-        
-        # 6. Device Breakdown
-        cursor.execute("""
-            SELECT device_type, COUNT(*) as count
-            FROM visitor_sessions
-            GROUP BY device_type
-        """)
-        device_rows = cursor.fetchall()
-        devices = {r["device_type"]: r["count"] for r in device_rows}
-        
-        # 7. OS Breakdown
-        cursor.execute("""
-            SELECT os, COUNT(*) as count
-            FROM visitor_sessions
-            GROUP BY os
-            ORDER BY count DESC
-            LIMIT 5
-        """)
-        os_rows = cursor.fetchall()
-        os_stats = {r["os"]: r["count"] for r in os_rows}
-        
-        # 8. Daily Visits Trend (Last 14 Days)
-        cursor.execute(f"""
-            SELECT DATE(created_at) as visit_date, COUNT(*) as count
-            FROM visitor_sessions
-            WHERE {days14_cond}
-            GROUP BY DATE(created_at)
-            ORDER BY visit_date ASC
-        """)
-        daily_rows = cursor.fetchall()
-        daily_trend = {str(r["visit_date"]): r["count"] for r in daily_rows}
-        
-        trend_labels = []
-        trend_values = []
-        today = datetime.date.today()
-        for i in range(13, -1, -1):
-            d = (today - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
-            trend_labels.append(d)
-            trend_values.append(daily_trend.get(d, 0))
+        with db_session(readonly=True) as (conn, cursor):
+            active_cond = "last_active >= NOW() - INTERVAL '3 minutes'" if is_postgres() else "last_active >= datetime('now', '-3 minutes')"
+            today_cond = "DATE(created_at) = CURRENT_DATE" if is_postgres() else "DATE(created_at) = DATE('now')"
+            days7_cond = "created_at >= NOW() - INTERVAL '7 days'" if is_postgres() else "created_at >= datetime('now', '-7 days')"
+            days14_cond = "created_at >= NOW() - INTERVAL '14 days'" if is_postgres() else "created_at >= datetime('now', '-14 days')"
             
-        # 9. Scroll Depth Distribution
-        cursor.execute("""
-            SELECT
-                SUM(CASE WHEN scroll_depth >= 0 AND scroll_depth < 25 THEN 1 ELSE 0 END) as depth_0_25,
-                SUM(CASE WHEN scroll_depth >= 25 AND scroll_depth < 50 THEN 1 ELSE 0 END) as depth_25_50,
-                SUM(CASE WHEN scroll_depth >= 50 AND scroll_depth < 75 THEN 1 ELSE 0 END) as depth_50_75,
-                SUM(CASE WHEN scroll_depth >= 75 THEN 1 ELSE 0 END) as depth_75_100
-            FROM visitor_sessions
-        """)
-        scroll_row = cursor.fetchone()
-        scroll_distribution = {
-            "25% (المقدمة فقط)": scroll_row["depth_0_25"] or 0,
-            "50% (المشكلة والعرض)": scroll_row["depth_25_50"] or 0,
-            "75% (الأسعار والخطوات)": scroll_row["depth_50_75"] or 0,
-            "100% (كامل الصفحة وحجز العرض)": scroll_row["depth_75_100"] or 0,
-        }
-        
-        # 10. Leads Count & Conversion Rate
-        cursor.execute("SELECT COUNT(*) as count FROM leads")
-        total_leads = cursor.fetchone()["count"] or 0
-        
-        conversion_rate = round((total_leads / total_sessions * 100) if total_sessions > 0 else 0, 2)
-        
-        # 11. Recent 20 Visitor Sessions
-        cursor.execute("""
-            SELECT id, session_id, device_type, browser, os, duration_seconds, scroll_depth, referrer, created_at, last_active
-            FROM visitor_sessions
-            ORDER BY id DESC
-            LIMIT 20
-        """)
-        recent_rows = cursor.fetchall()
-        recent_visitors = [dict(r) for r in recent_rows]
-        
-        conn.close()
-        
-        return jsonify({
-            "active_now": active_now,
-            "total_sessions": total_sessions,
-            "unique_visitors": unique_visitors,
-            "visitors_today": visitors_today,
-            "visitors_7d": visitors_7d,
-            "avg_duration_seconds": avg_duration,
-            "bounce_rate": bounce_rate,
-            "total_leads": total_leads,
-            "conversion_rate": conversion_rate,
-            "devices": devices,
-            "os_stats": os_stats,
-            "trend": {
-                "labels": trend_labels,
-                "values": trend_values
-            },
-            "scroll_distribution": scroll_distribution,
-            "recent_visitors": recent_visitors
-        })
+            cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {active_cond}")
+            active_now = cursor.fetchone()["count"] or 0
+            
+            cursor.execute("SELECT COUNT(*) as total_sessions, COUNT(DISTINCT ip) as unique_ips FROM visitor_sessions")
+            row = cursor.fetchone()
+            total_sessions = row["total_sessions"] or 0
+            unique_visitors = row["unique_ips"] or 0
+            
+            cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {today_cond}")
+            visitors_today = cursor.fetchone()["count"] or 0
+            
+            cursor.execute(f"SELECT COUNT(*) as count FROM visitor_sessions WHERE {days7_cond}")
+            visitors_7d = cursor.fetchone()["count"] or 0
+            
+            cursor.execute("""
+                SELECT 
+                    AVG(duration_seconds) as avg_duration,
+                    SUM(CASE WHEN duration_seconds < 10 THEN 1 ELSE 0 END) as bounces,
+                    COUNT(*) as total
+                FROM visitor_sessions
+            """)
+            dur_row = cursor.fetchone()
+            avg_duration = round(float(dur_row["avg_duration"] or 0), 1)
+            bounces = dur_row["bounces"] or 0
+            total_tracked = dur_row["total"] or 0
+            bounce_rate = round((bounces / total_tracked * 100) if total_tracked > 0 else 0, 1)
+            
+            cursor.execute("""
+                SELECT device_type, COUNT(*) as count
+                FROM visitor_sessions
+                GROUP BY device_type
+            """)
+            devices = {r["device_type"]: r["count"] for r in cursor.fetchall()}
+            
+            cursor.execute("""
+                SELECT os, COUNT(*) as count
+                FROM visitor_sessions
+                GROUP BY os
+                ORDER BY count DESC
+                LIMIT 5
+            """)
+            os_stats = {r["os"]: r["count"] for r in cursor.fetchall()}
+            
+            cursor.execute(f"""
+                SELECT DATE(created_at) as visit_date, COUNT(*) as count
+                FROM visitor_sessions
+                WHERE {days14_cond}
+                GROUP BY DATE(created_at)
+                ORDER BY visit_date ASC
+            """)
+            daily_trend = {str(r["visit_date"]): r["count"] for r in cursor.fetchall()}
+            
+            trend_labels = []
+            trend_values = []
+            today = datetime.date.today()
+            for i in range(13, -1, -1):
+                d = (today - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+                trend_labels.append(d)
+                trend_values.append(daily_trend.get(d, 0))
+                
+            cursor.execute("""
+                SELECT
+                    SUM(CASE WHEN scroll_depth >= 0 AND scroll_depth < 25 THEN 1 ELSE 0 END) as depth_0_25,
+                    SUM(CASE WHEN scroll_depth >= 25 AND scroll_depth < 50 THEN 1 ELSE 0 END) as depth_25_50,
+                    SUM(CASE WHEN scroll_depth >= 50 AND scroll_depth < 75 THEN 1 ELSE 0 END) as depth_50_75,
+                    SUM(CASE WHEN scroll_depth >= 75 THEN 1 ELSE 0 END) as depth_75_100
+                FROM visitor_sessions
+            """)
+            scroll_row = cursor.fetchone()
+            scroll_distribution = {
+                "25% (المقدمة فقط)": scroll_row["depth_0_25"] or 0,
+                "50% (المشكلة والعرض)": scroll_row["depth_25_50"] or 0,
+                "75% (الأسعار والخطوات)": scroll_row["depth_50_75"] or 0,
+                "100% (كامل الصفحة وحجز العرض)": scroll_row["depth_75_100"] or 0,
+            }
+            
+            cursor.execute("SELECT COUNT(*) as count FROM leads")
+            total_leads = cursor.fetchone()["count"] or 0
+            
+            conversion_rate = round((total_leads / total_sessions * 100) if total_sessions > 0 else 0, 2)
+            
+            cursor.execute("""
+                SELECT id, session_id, device_type, browser, os, duration_seconds, scroll_depth, referrer, created_at, last_active
+                FROM visitor_sessions
+                ORDER BY id DESC
+                LIMIT 20
+            """)
+            recent_visitors = [dict(r) for r in cursor.fetchall()]
+            
+            return jsonify({
+                "active_now": active_now,
+                "total_sessions": total_sessions,
+                "unique_visitors": unique_visitors,
+                "visitors_today": visitors_today,
+                "visitors_7d": visitors_7d,
+                "avg_duration_seconds": avg_duration,
+                "bounce_rate": bounce_rate,
+                "total_leads": total_leads,
+                "conversion_rate": conversion_rate,
+                "devices": devices,
+                "os_stats": os_stats,
+                "trend": {
+                    "labels": trend_labels,
+                    "values": trend_values
+                },
+                "scroll_distribution": scroll_distribution,
+                "recent_visitors": recent_visitors
+            })
     except Exception as e:
         print("Admin stats error:", str(e), file=sys.stderr)
         return jsonify({"error": "حدث خطأ أثناء تحميل الإحصائيات."}), 500
@@ -892,13 +958,10 @@ def admin_stats():
 @admin_required
 def admin_get_leads():
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute("SELECT id, name, phone, email, business_name, business_type, created_at FROM leads ORDER BY id DESC")
-        rows = cursor.fetchall()
-        conn.close()
-        leads = [dict(r) for r in rows]
-        return jsonify({"leads": leads})
+        with db_session(readonly=True) as (conn, cursor):
+            cursor.execute("SELECT id, name, phone, email, business_name, business_type, created_at FROM leads ORDER BY id DESC")
+            leads = [dict(r) for r in cursor.fetchall()]
+            return jsonify({"leads": leads})
     except Exception as e:
         print("Admin get leads error:", str(e), file=sys.stderr)
         return jsonify({"error": "حدث خطأ أثناء جلب قائمة العملاء."}), 500
@@ -907,31 +970,22 @@ def admin_get_leads():
 @admin_required
 def admin_delete_lead(lead_id):
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute(adapt_query("DELETE FROM leads WHERE id = ?"), (lead_id,))
-        conn.commit()
-        conn.close()
+        with db_session() as (conn, cursor):
+            cursor.execute(adapt_query("DELETE FROM leads WHERE id = ?"), (lead_id,))
         return jsonify({"success": True, "message": "تم حذف الحجز بنجاح."})
     except Exception as e:
         print("Admin delete lead error:", str(e), file=sys.stderr)
         return jsonify({"error": "حدث خطأ أثناء حذف الحجز."}), 500
 
-import csv
-import io
-
 @app.route('/api/admin/export-leads', methods=['GET'])
 @admin_required
 def export_leads_csv():
     try:
-        conn, cf = get_db()
-        cursor = get_cursor(conn, cf)
-        cursor.execute("SELECT id, name, phone, email, business_name, business_type, created_at FROM leads ORDER BY id DESC")
-        rows = cursor.fetchall()
-        conn.close()
-        
+        with db_session(readonly=True) as (conn, cursor):
+            cursor.execute("SELECT id, name, phone, email, business_name, business_type, created_at FROM leads ORDER BY id DESC")
+            rows = cursor.fetchall()
+            
         output = io.StringIO()
-        # UTF-8 BOM so Microsoft Excel renders Arabic correctly
         output.write('\ufeff')
         writer = csv.writer(output)
         writer.writerow(["المعرف (ID)", "الاسم الثلاثي", "رقم الهاتف", "البريد الإلكتروني", "اسم النشاط / الشركة", "نوع الباقة / الطلب", "تاريخ وتوقيت الحجز"])
@@ -957,14 +1011,19 @@ def export_leads_csv():
         print("Export CSV error:", str(e), file=sys.stderr)
         return jsonify({"error": "فشل تصدير البيانات."}), 500
 
-# Security Hardening & Cache Control Headers
+# 🛡️ 12. Security Headers & Selective Caching Policy
 @app.after_request
 def add_security_headers(response):
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    # Only dynamic APIs and admin dashboards get no-store
+    if request.path.startswith('/api/') or request.path in ('/admin.html', '/pathogenesis', '/pathogenesis.html'):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    else:
+        # Static files (CSS, JS, fonts, images) are cached properly
+        response.headers["Cache-Control"] = "public, max-age=3600"
     
-    # 🛡️ OWASP Security Headers
+    # 🛡️ OWASP Hardened Security Headers
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -976,10 +1035,11 @@ def add_security_headers(response):
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com data:; "
         "img-src 'self' data: https:; "
-        "connect-src 'self' https:; "
-        "frame-ancestors 'self';"
+        "connect-src 'self' https://script.google.com https://aiplatform.googleapis.com https://generativelanguage.googleapis.com; "
+        "frame-ancestors 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self';"
     )
-    # Mask / remove server identification
     response.headers["Server"] = "Web-Server"
     response.headers.pop("X-Powered-By", None)
     return response
@@ -992,5 +1052,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"Starting Flask Server on http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-
-
