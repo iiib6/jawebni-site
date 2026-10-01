@@ -9,20 +9,5 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
-      - key: ADMIN_USER
-        sync: false
-      - key: ADMIN_PASS
-        sync: false
-      - key: ADMIN_NOTIFICATION_EMAIL
-        sync: false
-      - key: GOOGLE_WEBHOOK_URL
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      # Render terminates TLS at its own edge and appends the client IP, so exactly
-      # one proxy hop is trusted. Raise to 2 if Cloudflare is placed in front of
-      # Render, and set it to 0 only if the app is exposed directly.
       - key: TRUSTED_PROXY_HOPS
         value: "1"

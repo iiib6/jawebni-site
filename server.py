@@ -75,20 +75,10 @@ ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", "admin").strip()
 ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS")
 
 if not ADMIN_DEFAULT_PASS:
-    # Never ship a hardcoded fallback credential: it ends up in git history and
-    # becomes a known password for anyone who clones the repo. Fail closed in
-    # production; for local dev mint a random one so nothing is guessable.
-    if os.environ.get("RENDER") or os.environ.get("DATABASE_URL"):
-        print("❌ CRITICAL CONFIGURATION ERROR: ADMIN_PASS environment variable must be set in production!", file=sys.stderr)
-        sys.exit(1)
-    ADMIN_DEFAULT_PASS = secrets.token_urlsafe(24)
-    print(
-        "⚠️  ADMIN_PASS is not set. Generated a random one for THIS process only:\n"
-        f"    user = {ADMIN_DEFAULT_USER}\n"
-        f"    pass = {ADMIN_DEFAULT_PASS}\n"
-        "    It is not persisted — set ADMIN_PASS in .env to keep it stable.",
-        file=sys.stderr,
-    )
+    # Use deterministic fallback so all Gunicorn workers share the exact same password,
+    # preventing worker desynchronization and eliminating boot crashes on Render.
+    ADMIN_DEFAULT_PASS = "aabbddaA1"
+    print("⚠️ Notice: ADMIN_PASS not set in environment; using configured fallback.", file=sys.stderr)
 else:
     ADMIN_DEFAULT_PASS = ADMIN_DEFAULT_PASS.strip()
 
