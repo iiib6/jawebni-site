@@ -19,7 +19,7 @@
   <nav class="nav" id="nav" aria-label="التنقل الرئيسي">
     <a class="nav__logo" href="#hero">جاوبني</a>
     <div class="nav__actions">
-      <a class="nav__link" href="#pricing">الأسعار والاشتراكات</a>
+      <a class="nav__link" href="#pricing">الأسعار والتسعير</a>
       <a class="nav__cta" href="#cta">احجز عرضك التجريبي</a>
     </div>
   </nav>
@@ -63,7 +63,7 @@
   <!-- العرض: فوق الفيلم -->
   <section class="film" id="offer">
     <div class="film__media" aria-hidden="true">
-      <video class="film__video" src="assets/hero-film.mp4" autoplay muted loop playsinline preload="metadata"></video>
+      <div class="film__mesh-bg"></div>
       <div class="film__overlay"></div>
     </div>
     <div class="container film__content">
@@ -127,158 +127,58 @@
     </div>
   </section>
 
-  <!-- خطط الاشتراكات -->
+  <!-- التسعير والاستثمار المخصص -->
   <section class="pricing" id="pricing">
     <div class="container">
       <div class="pricing__header">
-        <h2 class="section-title section-title--light">اختر الخطة المناسبة لنشاطك</h2>
-        <p class="pricing__subtitle">رسوم تأسيس وتدريب تُدفع لمرة واحدة لبرمجة موظفك الذكي + اشتراك شهري بسيط بالدينار العراقي لتشغيل السيرفرات والصيانة.</p>
+        <span class="pricing__badge">تسعير مرن وعادل</span>
+        <h2 class="section-title section-title--light">استثمارك يتحدد حسب حجم وتفاصيل مشروعك</h2>
+        <p class="pricing__subtitle">ما نلزمك بباقات جاهزة أو تكاليف إضافية ما تحتاجها. في «جاوبني» ندرس طبيعة عملك ونفصّل الحل الأنسب لك بدقة لتحقيق أعلى عائد على استثمارك.</p>
       </div>
 
-      <div class="pricing__grid">
-        <!-- الخطة الأولى: البداية -->
-        <article class="pricing-card">
-          <div class="pricing-card__body">
-            <div class="pricing-card__header">
-              <span class="pricing-card__icon-badge" aria-hidden="true">💎</span>
-              <h3 class="pricing-card__title">خطة البداية</h3>
-              <p class="pricing-card__tagline">للمشاريع الناشئة والصفحات الواعدة</p>
-            </div>
+      <!-- شبكة عوامل تحديد السعر -->
+      <div class="pricing-factors__grid">
+        <div class="pricing-factor-card">
+          <div class="pricing-factor-card__icon-badge" aria-hidden="true">📱</div>
+          <h3 class="pricing-factor-card__title">القنوات والمنصات</h3>
+          <p class="pricing-factor-card__desc">واتساب فقط، أو ربط متكامل يشمل انستغرام وفيسبوك وموقعك.</p>
+        </div>
 
-            <button type="button" class="pricing-card__toggle" aria-expanded="false">
-              <span class="toggle-text">عرض التفاصيل</span>
-              <svg class="toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
+        <div class="pricing-factor-card">
+          <div class="pricing-factor-card__icon-badge" aria-hidden="true">⚡</div>
+          <h3 class="pricing-factor-card__title">حجم الرسائل والعملاء</h3>
+          <p class="pricing-factor-card__desc">من صفحات ناشئة إلى آلاف المحادثات المتزامنة بمواسم الذروة.</p>
+        </div>
 
-            <div class="pricing-card__details">
-              <ul class="pricing-card__features">
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🔹</span>
-                  <span>تأسيس وبرمجة وكيل ذكي لـ <strong>منصة واحدة</strong> (واتساب أو انستغرام)</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">💬</span>
-                  <span>حتى <strong>١,٠٠٠</strong> محادثة شهرياً</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">⚡</span>
-                  <span>ردود فورية 24/7 بلغة عراقية دافئة ومقنعة</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🎯</span>
-                  <span>تدريب كامل على كافة منتجاتك، أسعارك، والردود المكررة</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">📊</span>
-                  <span>لوحة متابعة بسيطة لإحصائيات الرسائل والعملاء</span>
-                </li>
-              </ul>
-            </div>
+        <div class="pricing-factor-card">
+          <div class="pricing-factor-card__icon-badge" aria-hidden="true">🧠</div>
+          <h3 class="pricing-factor-card__title">أسلوب المحادثة والبيع</h3>
+          <p class="pricing-factor-card__desc">ردود سريعة واستفسارات، أو محادثة ذكية تقنع الزبون بالمنتج.</p>
+        </div>
+
+        <div class="pricing-factor-card">
+          <div class="pricing-factor-card__icon-badge" aria-hidden="true">📋</div>
+          <h3 class="pricing-factor-card__title">تثبيت الطلبات والحجوزات</h3>
+          <p class="pricing-factor-card__desc">استلام الاسم والعنوان، حجز المواعيد، وتنزيل الطلب بجداولك فوراً.</p>
+        </div>
+      </div>
+
+      <!-- بطاقة طلب التسعيرة والاستشارة المخصصة -->
+      <div class="pricing-custom-box">
+        <div class="pricing-custom-box__content">
+          <div class="pricing-custom-box__badge">💡 كل نشاط تجاري إله متطلباته الخاصة</div>
+          <h3 class="pricing-custom-box__title">احصل على تسعيرة واضحة ومدروسة لعملك</h3>
+          <p class="pricing-custom-box__desc">تواصل ويانا، اشرحلنا طبيعة مشروعك والأهداف اللي تريد توصللها، وراح نزودك بدراسة وافية وتسعيرة مخصصة تضمنلك أعلى جدوى وأسرع تشغيل لموظفك الذكي.</p>
+          <div class="pricing-custom-box__features">
+            <span class="pricing-check-item">✓ تدفع فقط على گد احتياج عملك الفعلي</span>
+            <span class="pricing-check-item">✓ تأسيس وتدريب لمرة واحدة + اشتراك تشغيل مستقر</span>
+            <span class="pricing-check-item">✓ استشارة وتجربة عملية قبل اتخاذ أي قرار</span>
           </div>
-
-          <div class="pricing-card__action">
-            <a class="pricing-card__btn" href="#cta">اشترك في البداية</a>
-          </div>
-        </article>
-
-        <!-- الخطة الثانية: النمو - الأكثر طلباً -->
-        <article class="pricing-card pricing-card--featured">
-          <div class="pricing-card__badge">🔥 الأكثر طلباً</div>
-          <div class="pricing-card__body">
-            <div class="pricing-card__header">
-              <span class="pricing-card__icon-badge" aria-hidden="true">🚀</span>
-              <h3 class="pricing-card__title">خطة النمو</h3>
-              <p class="pricing-card__tagline">للمتاجر والشركات المتنامية (تطبيقين)</p>
-            </div>
-
-            <button type="button" class="pricing-card__toggle" aria-expanded="false">
-              <span class="toggle-text">عرض التفاصيل</span>
-              <svg class="toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
-
-            <div class="pricing-card__details">
-              <ul class="pricing-card__features">
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🤖</span>
-                  <span>تأسيس وبرمجة وكلاء ذكاء اصطناعي لـ <strong>تطبيقين متكاملين</strong> (مثل واتساب + انستغرام)</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">💬</span>
-                  <span>حتى <strong>٥,٠٠٠</strong> محادثة شهرياً</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">📈</span>
-                  <span>أتمتة إغلاق الصفقات وحجز المواعيد والطلبات</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🗓️</span>
-                  <span>ربط مباشر مع تقويمك أو نظام إدارة الطلبات</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">📊</span>
-                  <span>تقارير دقيقة لأداء المحادثات ونسبة تحويل الزبائن</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🤝</span>
-                  <span>دعم فني مخصص وأولوية في المتابعة والتحديث</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="pricing-card__action">
-            <a class="pricing-card__btn pricing-card__btn--gold" href="#cta">اختر خطة النمو</a>
-          </div>
-        </article>
-
-        <!-- الخطة الثالثة: النخبة -->
-        <article class="pricing-card">
-          <div class="pricing-card__body">
-            <div class="pricing-card__header">
-              <span class="pricing-card__icon-badge" aria-hidden="true">👑</span>
-              <h3 class="pricing-card__title">خطة النخبة</h3>
-              <p class="pricing-card__tagline">للعيادات والمؤسسات والشركات الكبرى</p>
-            </div>
-
-            <button type="button" class="pricing-card__toggle" aria-expanded="false">
-              <span class="toggle-text">عرض التفاصيل</span>
-              <svg class="toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
-
-            <div class="pricing-card__details">
-              <ul class="pricing-card__features">
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">👑</span>
-                  <span>تأسيس شامل لـ <strong>كافة المنصات</strong> (واتساب، انستغرام، ماسنجر، الموقع)</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">♾️</span>
-                  <span>محادثات واستشارات <strong>غير محدودة</strong></span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🧠</span>
-                  <span>تدريب مخصص وسيناريوهات تفاوض وإغلاق مبيعات معقدة</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🔌</span>
-                  <span>ربط API مخصص وأنظمة CRM والبرامج المحاسبية الخاصة بك</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">🚀</span>
-                  <span>سيرفرات فائقة السرعة مع ضمان تشغيل 99.9%</span>
-                </li>
-                <li>
-                  <span class="pricing-card__icon" aria-hidden="true">👤</span>
-                  <span>مدير حساب مخصص + دعم فني ومتابعة VIP 24/7</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="pricing-card__action">
-            <a class="pricing-card__btn" href="#cta">اشترك في النخبة</a>
-          </div>
-        </article>
+        </div>
+        <div class="pricing-custom-box__action">
+          <button type="button" class="pricing-custom-box__btn" id="openPricingQuoteBtn">اطلب تسعيرة مشروعك الآن 💬</button>
+          <span class="pricing-custom-box__note">نتواصل معك فوراً عبر الواتساب بدون أي التزام</span>
+        </div>
       </div>
     </div>
   </section>
@@ -299,16 +199,16 @@
     <div class="demo-modal__card" data-lenis-prevent data-lenis-prevent-touch>
       <button class="demo-modal__close" id="closeDemoModal" aria-label="إغلاق">&times;</button>
       
-      <!-- تبويبات النافذة: حجز مباشر أو تجربة تفاعلية -->
+      <!-- تبويبات النافذة: طلب تسعيرة أو تجربة تفاعلية -->
       <div class="modal-tabs">
-        <button type="button" class="modal-tab active" id="tabBookingBtn">📅 حجز اشتراك وتواصل</button>
+        <button type="button" class="modal-tab active" id="tabBookingBtn">📅 اطلب تسعيرة لعملك</button>
         <button type="button" class="modal-tab" id="tabDemoBtn">💬 جرّب «علي» لايف</button>
       </div>
 
-      <!-- 1. شاشة الحجز المباشر -->
+      <!-- 1. شاشة الحجز المباشر وطلب التسعيرة -->
       <div class="demo-screen" id="directBookingScreen" data-lenis-prevent data-lenis-prevent-touch>
-        <h3 class="demo-screen__title">احجز نظام «جاوبني» لعملك</h3>
-        <p class="demo-screen__subtitle">أدخل بياناتك وسيتواصل معك فريقنا مباشرة عبر الهاتف أو الواتساب لتشغيل موظفك الذكي وتدريبه على نشاطك.</p>
+        <h3 class="demo-screen__title">اطلب دراسة وتسعيرة مخصصة لمشروعك</h3>
+        <p class="demo-screen__subtitle">أدخل بياناتك وسيتواصل معك فريقنا مباشرة عبر الهاتف أو الواتساب لمناقشة تفاصيل عملك وتقديم أنسب تسعيرة لمشروعك.</p>
         
         <form id="directBookingForm" class="demo-custom-form" onsubmit="return false;">
           <div class="demo-form-group">
@@ -326,17 +226,7 @@
             <input type="text" id="bookBizName" placeholder="مثال: عيادة د. سارة / متجر دبي" />
           </div>
 
-          <div class="demo-form-group">
-            <label for="bookPlanSelect">الخطة المطلوبة:</label>
-            <select id="bookPlanSelect" class="demo-select">
-              <option value="خطة البداية">خطة البداية (تطبيق واحد)</option>
-              <option value="خطة النمو" selected>خطة النمو — الأكثر طلباً (تطبيقين)</option>
-              <option value="خطة النخبة">خطة النخبة — شاملة (كافة المنصات)</option>
-              <option value="استشارة وعرض خاص">استشارة مخصصة / عرض خاص</option>
-            </select>
-          </div>
-
-          <button type="submit" class="demo-submit-btn" id="submitDirectBookingBtn">تأكيد الحجز وإرسال الطلب 🚀</button>
+          <button type="submit" class="demo-submit-btn" id="submitDirectBookingBtn">تأكيد الطلب والتواصل 🚀</button>
         </form>
       </div>
 
@@ -431,7 +321,7 @@
         </div>
 
         <div class="demo-success-actions">
-          <button class="demo-submit-btn" id="successGoToBookingBtn">📅 حجز اشتراك وتثبيت النظام لمشروعك 🚀</button>
+          <button class="demo-submit-btn" id="successGoToBookingBtn">📅 اطلب دراسة وتسعيرة لمشروعك 🚀</button>
           <button class="demo-modal__secondary-btn" id="finishBookingBtn">إغلاق وتواصل لاحقاً 👍</button>
           <button class="demo-modal__secondary-btn" id="restartDemoBtn" style="font-size:0.82rem; opacity:0.75;">جرّب تجربة أخرى</button>
         </div>

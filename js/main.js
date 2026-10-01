@@ -342,24 +342,43 @@ if (reduceMotion) {
     );
   });
 
-  /* بطاقات الاشتراكات */
-  gsap.utils.toArray(".pricing-card").forEach((card, i) => {
+  /* عوامل التسعير المخصص وبطاقة الطلب */
+  gsap.utils.toArray(".pricing-factor-card").forEach((card, i) => {
     gsap.fromTo(
       card,
-      { y: 50, autoAlpha: 0 },
+      { y: 40, autoAlpha: 0 },
       {
         y: 0,
         autoAlpha: 1,
         ease: "power1.out",
         scrollTrigger: {
-          trigger: ".pricing__grid",
-          start: `top ${82 - i * 5}%`,
-          end: `top ${55 - i * 5}%`,
+          trigger: ".pricing-factors__grid",
+          start: `top ${85 - i * 4}%`,
+          end: `top ${60 - i * 4}%`,
           scrub: 0.8,
         },
       }
     );
   });
+
+  const pricingCustomBox = document.querySelector(".pricing-custom-box");
+  if (pricingCustomBox) {
+    gsap.fromTo(
+      pricingCustomBox,
+      { y: 40, autoAlpha: 0 },
+      {
+        y: 0,
+        autoAlpha: 1,
+        ease: "power1.out",
+        scrollTrigger: {
+          trigger: pricingCustomBox,
+          start: "top 85%",
+          end: "top 65%",
+          scrub: 0.8,
+        },
+      }
+    );
+  }
 
   /* الحرف الشاهد يتنفّس مع التمرير */
   gsap.utils.toArray([".features__witness", ".cta__witness"]).forEach((el) => {
@@ -534,22 +553,14 @@ if (document.fonts && document.fonts.ready) {
     });
   });
 
-  document.querySelectorAll('.pricing-card__btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  // Event Listeners for Opening Modal from Pricing Section
+  const openPricingQuoteBtn = document.getElementById("openPricingQuoteBtn");
+  if (openPricingQuoteBtn) {
+    openPricingQuoteBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      const card = btn.closest('.pricing-card');
-      const planTitle = card ? card.querySelector('.pricing-card__title')?.textContent?.trim() : '';
-      
-      let matchedValue = "خطة النمو";
-      if (planTitle && planTitle.includes("البداية")) matchedValue = "خطة البداية";
-      else if (planTitle && planTitle.includes("النخبة")) matchedValue = "خطة النخبة";
-      
-      if (bookPlanSelect) {
-        bookPlanSelect.value = matchedValue;
-      }
       openModal("booking");
     });
-  });
+  }
 
   function openModal(initialTab = "booking") {
     demoModal.style.display = "flex";
@@ -626,7 +637,6 @@ if (document.fonts && document.fonts.ready) {
       const fullName = bookFullNameInput ? bookFullNameInput.value.trim() : "";
       const phone = bookPhoneInput ? bookPhoneInput.value.trim() : "";
       const bizName = bookBizNameInput ? bookBizNameInput.value.trim() : "";
-      const plan = bookPlanSelect ? bookPlanSelect.value : "خطة النمو";
       
       if (!fullName || !phone) {
         alert("الرجاء إدخال الاسم الثلاثي ورقم الهاتف للتواصل.");
@@ -635,14 +645,14 @@ if (document.fonts && document.fonts.ready) {
       
       if (submitDirectBookingBtn) {
         submitDirectBookingBtn.disabled = true;
-        submitDirectBookingBtn.textContent = "جاري إرسال الحجز...";
+        submitDirectBookingBtn.textContent = "جاري إرسال الطلب...";
       }
       
       const leadPayload = {
         name: fullName,
         phone: phone,
         business_name: bizName || "غير محدد",
-        business_type: plan
+        business_type: "طلب تسعير واستشارة مخصصة"
       };
       
       dispatchNotification(leadPayload);
@@ -650,11 +660,11 @@ if (document.fonts && document.fonts.ready) {
       setTimeout(() => {
         if (submitDirectBookingBtn) {
           submitDirectBookingBtn.disabled = false;
-          submitDirectBookingBtn.textContent = "تأكيد الحجز وإرسال الطلب 🚀";
+          submitDirectBookingBtn.textContent = "تأكيد الطلب والتواصل 🚀";
         }
         
         if (successScreenMsg) {
-          successScreenMsg.innerHTML = `أهلاً بك يا <strong>${fullName}</strong>! تم تسجيل طلبك بنجاح للخطة (<strong>${plan}</strong>).<br>تم إرسال تفاصيلك لفريقنا وسنتواصل معك عبر الواتساب على الرقم (<strong>${phone}</strong>) فوراً لتفعيل النظام لنشاطك.`;
+          successScreenMsg.innerHTML = `أهلاً بك يا <strong>${fullName}</strong>! تم استلام وتثبيت طلبك بنجاح.<br>تم إرسال تفاصيلك لفريقنا وسنتواصل معك عبر الواتساب على الرقم (<strong>${phone}</strong>) فوراً لمناقشة تفاصيل مشروعك وتقديم العرض الأنسب لك.`;
         }
         
         showScreen("demoSuccessScreen");

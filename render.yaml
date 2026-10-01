@@ -3,7 +3,7 @@ services:
     name: jawebni-site
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn server:app
+    startCommand: gunicorn server:app --workers 3 --threads 4 --timeout 120
     envVars:
       - key: GEMINI_API_KEY
         sync: false

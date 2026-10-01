@@ -97,12 +97,12 @@
     document.addEventListener('DOMContentLoaded', trackVisit);
   }
 
-  // Heartbeat every 15 seconds while tab is active
+  // Heartbeat every 35 seconds while tab is active to preserve server resources
   const heartbeatInterval = setInterval(function () {
     if (!document.hidden) {
       sendPing(false);
     }
-  }, 15000);
+  }, 35000);
 
   // Send update on visibility change / exit
   document.addEventListener('visibilitychange', function () {

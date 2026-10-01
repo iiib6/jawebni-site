@@ -37,8 +37,9 @@ import secrets
 import datetime
 from functools import wraps
 
-ADMIN_DEFAULT_USER = "admin"
-ADMIN_DEFAULT_PASS = "aabbddaA1"
+ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS", "aabbddaA1")
+ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", "aboody.alfaloje20@gmail.com")
 
 # Zero-dependency manual .env loader
 def load_env():
@@ -55,6 +56,11 @@ def load_env():
             print("Failed to read .env file:", str(e), file=sys.stderr)
 
 load_env()
+
+# Re-read after loading .env
+ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", ADMIN_DEFAULT_USER)
+ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS", ADMIN_DEFAULT_PASS)
+ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", ADMIN_NOTIFICATION_EMAIL)
 
 _pg_pool = None
 
@@ -126,7 +132,12 @@ def get_db():
             print("PostgreSQL direct connection failed:", str(e), file=sys.stderr)
             
     db_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "leads.db")
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=15)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+    except Exception:
+        pass
     conn.row_factory = sqlite3.Row
     return conn, None
 
@@ -186,8 +197,24 @@ def init_db():
         conn.close()
         db_type = "PostgreSQL Cloud Database" if is_postgres() else "SQLite (leads.db)"
         print(f"Database tables initialized successfully ({db_type}).")
+        cleanup_old_records()
     except Exception as e:
         print("Failed to initialize database:", str(e), file=sys.stderr)
+
+def cleanup_old_records():
+    """Periodically cleans up expired tokens and sessions older than 60 days to prevent bloat"""
+    try:
+        conn, cf = get_db()
+        cursor = get_cursor(conn, cf)
+        cursor.execute(adapt_query("DELETE FROM admin_tokens WHERE expires_at < CURRENT_TIMESTAMP"))
+        if is_postgres():
+            cursor.execute("DELETE FROM visitor_sessions WHERE created_at < NOW() - INTERVAL '60 days'")
+        else:
+            cursor.execute("DELETE FROM visitor_sessions WHERE created_at < datetime('now', '-60 days')")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print("DB cleanup exception (ignored):", str(e), file=sys.stderr)
 
 init_db()
 API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -359,8 +386,8 @@ def send_lead_email(lead_data):
     <head><meta charset="utf-8"></head>
     <body style="font-family: Arial, sans-serif; background-color: #F6F2E9; padding: 20px; color: #22392B;">
       <div style="max-width: 560px; margin: auto; background: #ffffff; border: 1px solid #C4A35A; border-radius: 16px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-        <h2 style="color: #22392B; margin-top: 0; border-bottom: 2px solid #C4A35A; padding-bottom: 12px;">🎉 حجز جديد على منصة «جاوبني»</h2>
-        <p style="font-size: 15px; color: #445138;">وصلك طلب تواصل / اشتراك جديد من الموقع الرسمي:</p>
+        <h2 style="color: #22392B; margin-top: 0; border-bottom: 2px solid #C4A35A; padding-bottom: 12px;">🎉 طلب تسعيرة واستشارة جديدة على منصة «جاوبني»</h2>
+        <p style="font-size: 15px; color: #445138;">وصلك طلب استشارة وتسعيرة مخصصة من الموقع الرسمي:</p>
         
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
           <tr style="background-color: #F6F2E9;">
@@ -377,11 +404,7 @@ def send_lead_email(lead_data):
           </tr>
           <tr style="background-color: #F6F2E9;">
             <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">اسم المشروع / النشاط:</td>
-            <td style="padding: 10px; border: 1px solid #E2D9C6;">{biz_name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; font-weight: bold; border: 1px solid #E2D9C6;">الخطة / نوع الطلب:</td>
-            <td style="padding: 10px; border: 1px solid #E2D9C6; color: #C4A35A; font-weight: bold;">{biz_type}</td>
+            <td style="padding: 10px; border: 1px solid #E2D9C6; font-weight: bold; color: #22392B;">{biz_name}</td>
           </tr>
         </table>
         
@@ -407,7 +430,7 @@ def send_lead_email(lead_data):
     # 2. Secondary Method: SMTP Fallback
     if smtp_user and smtp_pass:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"🔥 حجز جديد في جاوبني: {name} - {phone}"
+        msg["Subject"] = f"🔥 طلب تسعيرة واستشارة جديدة: {name} - {phone}"
         msg["From"] = f"جاوبني <{smtp_user}>"
         msg["To"] = ADMIN_NOTIFICATION_EMAIL
         

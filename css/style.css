@@ -318,12 +318,14 @@ body {
   background: var(--green-night);
 }
 
-.film__video {
+.film__mesh-bg {
   position: absolute;
-  inset: -8% 0;
-  width: 100%;
-  height: 116%;
-  object-fit: cover;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(196, 163, 90, 0.22), transparent 70%),
+    radial-gradient(ellipse 70% 60% at 15% 85%, rgba(68, 81, 56, 0.5), transparent 65%),
+    radial-gradient(ellipse 80% 70% at 85% 60%, rgba(34, 57, 43, 0.7), transparent 70%),
+    var(--green-night);
 }
 
 .film__overlay {
@@ -433,6 +435,30 @@ body {
   color: var(--olive-soft);
 }
 
+@media (max-width: 680px) {
+  .steps__list {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+  .steps__svg {
+    display: none;
+  }
+  .step {
+    padding-top: 0;
+  }
+  .step__diamond {
+    position: relative;
+    top: auto;
+    right: auto;
+    translate: none;
+    margin: 0 auto 0.8rem;
+    box-shadow: 0 0 0 5px var(--cream);
+  }
+  .step__name {
+    margin-top: 0;
+  }
+}
+
 /* ---------- الميزات ---------- */
 
 .features {
@@ -502,7 +528,15 @@ body {
   max-width: 48ch;
 }
 
-/* ---------- خطط الاشتراكات ---------- */
+@media (max-width: 680px) {
+  .feature {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+    padding: 1.3rem 0;
+  }
+}
+
+/* ---------- التسعير المخصص حسب المشروع ---------- */
 
 .pricing {
   position: relative;
@@ -529,7 +563,20 @@ body {
 
 .pricing__header {
   text-align: center;
-  margin-bottom: clamp(3rem, 7vh, 5rem);
+  margin-bottom: clamp(3rem, 6vh, 4.5rem);
+}
+
+.pricing__badge {
+  display: inline-block;
+  background: rgba(196, 163, 90, 0.14);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 1.1rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  letter-spacing: 0.02em;
 }
 
 .pricing__header .section-title {
@@ -539,323 +586,208 @@ body {
 .pricing__subtitle {
   font-size: clamp(0.98rem, 1.8vw, 1.16rem);
   color: var(--sand-soft);
-  max-width: 50ch;
+  max-width: 54ch;
   margin-inline: auto;
+  line-height: 1.8;
 }
 
-.pricing__grid {
+/* شبكة عوامل تحديد السعر */
+.pricing-factors__grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(1.5rem, 3vw, 2.5rem);
-  align-items: start;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(1.2rem, 2.2vw, 1.8rem);
+  margin-bottom: clamp(2.5rem, 5vh, 3.8rem);
 }
 
-.pricing-card {
+@media (max-width: 1024px) {
+  .pricing-factors__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .pricing-factors__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pricing-factor-card {
   position: relative;
-  background: color-mix(in srgb, var(--green-night) 65%, transparent);
+  background: color-mix(in srgb, var(--green-night) 70%, transparent);
   border: 1px solid rgba(196, 163, 90, 0.2);
   border-radius: 20px;
-  padding: 1.6rem 1.4rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  padding: 1.8rem 1.4rem;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s ease, box-shadow 0.35s ease;
-}
-
-.pricing-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(196, 163, 90, 0.45);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35), 0 0 20px rgba(196, 163, 90, 0.1);
-}
-
-.pricing-card--featured {
-  background: color-mix(in srgb, var(--green-royal) 85%, var(--green-night));
-  border: 2px solid var(--gold);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(196, 163, 90, 0.18);
-}
-
-.pricing-card--featured:hover {
-  transform: translateY(-7px);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5), 0 0 40px rgba(196, 163, 90, 0.25);
-}
-
-.pricing-card__badge {
-  position: absolute;
-  top: -13px;
-  right: 50%;
-  transform: translateX(50%);
-  background: var(--gold);
-  color: var(--green-night);
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 0.78rem;
-  padding: 0.25rem 1rem;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(196, 163, 90, 0.4);
-  white-space: nowrap;
-}
-
-.pricing-card__icon-badge {
-  display: block;
-  font-size: 1.8rem;
-  margin-bottom: 0.4rem;
-  line-height: 1;
-}
-
-.pricing-card__header {
-  text-align: center;
-  padding-bottom: 0.6rem;
-}
-
-.pricing-card__title {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: clamp(1.35rem, 2.2vw, 1.65rem);
-  color: var(--cream);
-}
-
-.pricing-card--featured .pricing-card__title {
-  color: var(--gold);
-}
-
-.pricing-card__tagline {
-  font-size: 0.84rem;
-  color: var(--sand-soft);
-  margin-top: 0.2rem;
-  opacity: 0.85;
-}
-
-.pricing-card__setup {
-  margin-top: 1rem;
-  background: rgba(196, 163, 90, 0.08);
-  border: 1px solid rgba(196, 163, 90, 0.25);
-  border-radius: 16px;
-  padding: 0.85rem 0.8rem 0.75rem;
-  text-align: center;
-  transition: all 0.3s ease;
-}
-
-.pricing-card--featured .pricing-card__setup {
-  background: rgba(196, 163, 90, 0.14);
-  border-color: rgba(196, 163, 90, 0.45);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
-}
-
-.pricing-card__setup-label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--sand-soft);
-  margin-bottom: 0.3rem;
-  font-weight: 400;
-}
-
-.pricing-card__setup-price {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  text-align: center;
+  align-items: center;
+}
+
+.pricing-factor-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(196, 163, 90, 0.5);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35), 0 0 24px rgba(196, 163, 90, 0.12);
+}
+
+.pricing-factor-card__icon-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(196, 163, 90, 0.12);
+  border: 1px solid rgba(196, 163, 90, 0.3);
+  display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+  font-size: 1.45rem;
+  margin-bottom: 1.1rem;
 }
 
-.pricing-card__setup-curr {
+.pricing-factor-card__title {
   font-family: var(--font-display);
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--gold);
+  font-size: 1.22rem;
+  font-weight: 600;
+  color: var(--cream);
+  margin-bottom: 0.55rem;
+  line-height: 1.4;
 }
 
-.pricing-card__setup-amount {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(2.1rem, 3.6vw, 2.6rem);
-  color: var(--gold);
-  line-height: 1;
-}
-
-.pricing-card__setup-once {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--sand);
-  margin-top: 0.3rem;
+.pricing-factor-card__desc {
+  font-size: 0.9rem;
+  color: var(--sand-soft);
+  line-height: 1.75;
   opacity: 0.9;
 }
 
-.pricing-card__monthly {
-  margin-top: 0.75rem;
+/* بطاقة طلب التسعيرة المركزية */
+.pricing-custom-box {
+  position: relative;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--green-royal) 92%, var(--green-night)), color-mix(in srgb, var(--green-night) 92%, var(--green-royal)));
+  border: 2px solid var(--gold);
+  border-radius: 24px;
+  padding: clamp(2rem, 4vw, 3rem);
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  background: rgba(0, 0, 0, 0.25);
-  padding: 0.4rem 0.85rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  justify-content: space-between;
+  gap: 2.5rem;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4), 0 0 35px rgba(196, 163, 90, 0.15);
 }
 
-.pricing-card__monthly-plus {
+@media (max-width: 900px) {
+  .pricing-custom-box {
+    flex-direction: column;
+    text-align: center;
+    gap: 1.8rem;
+    padding: 2rem 1.5rem;
+  }
+}
+
+.pricing-custom-box__content {
+  flex: 1;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .pricing-custom-box__content {
+    text-align: center;
+  }
+}
+
+.pricing-custom-box__badge {
+  display: inline-block;
   color: var(--gold);
-  font-weight: 700;
-  font-size: 0.95rem;
-  line-height: 1;
-}
-
-.pricing-card__monthly-amount {
-  font-weight: 700;
-  color: var(--cream);
-  font-size: 0.95rem;
-}
-
-.pricing-card__monthly-curr {
-  font-weight: 700;
-  color: var(--sand);
-  font-size: 0.82rem;
-}
-
-.pricing-card__monthly-period {
-  font-size: 0.78rem;
-  color: var(--sand-soft);
-  opacity: 0.85;
-}
-
-.pricing-card__price {
-  margin-top: 0.9rem;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 0.3rem;
-}
-
-.pricing-card__amount {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(2rem, 3.8vw, 2.7rem);
-  color: var(--gold);
-  line-height: 1;
-}
-
-.pricing-card__currency {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--sand);
-}
-
-.pricing-card__period {
-  font-size: 0.82rem;
-  color: var(--sand-soft);
-  opacity: 0.8;
-}
-
-/* زر عرض/إخفاء التفاصيل */
-.pricing-card__toggle {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px dashed rgba(196, 163, 90, 0.3);
-  border-radius: 12px;
-  color: var(--sand);
-  font-family: var(--font-body);
   font-size: 0.85rem;
-  font-weight: 400;
-  padding: 0.45rem 0.9rem;
-  margin: 0.9rem auto 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  cursor: pointer;
-  width: fit-content;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
 }
 
-.pricing-card__toggle:hover {
-  background: rgba(196, 163, 90, 0.12);
-  border-color: var(--gold);
+.pricing-custom-box__title {
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 2.5vw, 2.1rem);
   color: var(--cream);
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+  line-height: 1.4;
 }
 
-.toggle-icon {
-  transition: transform 0.3s ease;
+.pricing-custom-box__desc {
+  font-size: clamp(0.94rem, 1.6vw, 1.05rem);
+  color: var(--sand-soft);
+  line-height: 1.8;
+  margin-bottom: 1.4rem;
+  max-width: 58ch;
 }
 
-.pricing-card.is-expanded .toggle-icon {
-  transform: rotate(180deg);
+@media (max-width: 900px) {
+  .pricing-custom-box__desc {
+    margin-inline: auto;
+  }
 }
 
-/* المنطقة القابلة للطي والتوسيع */
-.pricing-card__details {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease;
-  margin-top: 0;
+.pricing-custom-box__features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.2rem;
 }
 
-.pricing-card.is-expanded .pricing-card__details {
-  max-height: 500px;
-  opacity: 1;
-  margin-top: 1.1rem;
-  padding-top: 0.9rem;
-  border-top: 1px dashed rgba(196, 163, 90, 0.2);
+@media (max-width: 900px) {
+  .pricing-custom-box__features {
+    justify-content: center;
+  }
 }
 
-.pricing-card__features {
-  list-style: none;
+.pricing-check-item {
+  font-size: 0.88rem;
+  color: var(--cream);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(196, 163, 90, 0.1);
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 163, 90, 0.25);
+}
+
+.pricing-custom-box__action {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 250px;
 }
 
-.pricing-card__features li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  font-size: 0.86rem;
-  color: var(--sand-soft);
-  line-height: 1.5;
-}
-
-.pricing-card__features li strong {
-  color: var(--gold);
-  font-weight: 700;
-}
-
-.pricing-card__action {
-  margin-top: 1.2rem;
-}
-
-.pricing-card__btn {
-  display: block;
+.pricing-custom-box__btn {
   width: 100%;
-  text-align: center;
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: var(--cream);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--gold);
-  border-radius: 999px;
-  padding: 0.75rem 1.2rem;
-  text-decoration: none;
-  transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
-}
-
-.pricing-card__btn:hover,
-.pricing-card__btn:focus-visible {
-  background-color: var(--gold);
-  color: var(--green-night);
-  transform: translateY(-2px);
-}
-
-.pricing-card__btn--gold {
   background: var(--gold);
   color: var(--green-night);
-  border-color: var(--gold);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 1rem 1.8rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 8px 24px rgba(196, 163, 90, 0.3);
+  transition: transform 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
 }
 
-.pricing-card__btn--gold:hover,
-.pricing-card__btn--gold:focus-visible {
+.pricing-custom-box__btn:hover,
+.pricing-custom-box__btn:focus-visible {
   background-color: var(--cream);
   color: var(--green-royal);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(196, 163, 90, 0.45);
+}
+
+.pricing-custom-box__note {
+  font-size: 0.8rem;
+  color: var(--sand-soft);
+  opacity: 0.85;
 }
 
 /* ---------- الدعوة ---------- */

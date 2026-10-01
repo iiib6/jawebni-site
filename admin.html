@@ -1145,6 +1145,25 @@
       });
     }
 
+    let previousLeadsCount = null;
+
+    function playLeadChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch (e) {}
+    }
+
     // 6. Fetch Leads
     async function fetchLeads() {
       try {
@@ -1155,7 +1174,14 @@
         if (!res.ok) return;
 
         const data = await res.json();
-        allLeads = data.leads || [];
+        const newLeads = data.leads || [];
+        
+        if (previousLeadsCount !== null && newLeads.length > previousLeadsCount) {
+          playLeadChime();
+        }
+        previousLeadsCount = newLeads.length;
+
+        allLeads = newLeads;
         document.getElementById('leadsCountBadge').innerText = `${allLeads.length} عميل`;
         renderLeadsTable(allLeads);
       } catch (err) {
