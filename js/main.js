@@ -659,33 +659,33 @@ if (document.fonts && document.fonts.ready) {
   }
 
   function openModal(initialTab = "booking") {
+    switchTab(initialTab);
+    resetForm();
+
     demoModal.style.display = "flex";
     document.body.style.overflow = "hidden";
     if (window.lenis) window.lenis.stop();
     
-    // animate in
+    // Animate in - Snappy & lightweight for zero mobile lag
     gsap.killTweensOf(demoModal);
     gsap.killTweensOf(".demo-modal__card");
     
     gsap.set(demoModal, { opacity: 0 });
-    gsap.set(".demo-modal__card", { y: 30, scale: 0.95 });
+    gsap.set(".demo-modal__card", { y: 12, opacity: 0 });
     
     demoModal.classList.add("active");
-    gsap.to(demoModal, { opacity: 1, duration: 0.35, ease: "power2.out" });
-    gsap.to(".demo-modal__card", { y: 0, scale: 1, duration: 0.45, ease: "back.out(1.2)" });
-    
-    switchTab(initialTab);
-    resetForm();
+    gsap.to(demoModal, { opacity: 1, duration: 0.2, ease: "power1.out" });
+    gsap.to(".demo-modal__card", { y: 0, opacity: 1, duration: 0.22, ease: "power1.out" });
   }
 
   function closeModal() {
-    gsap.to(demoModal, { opacity: 0, duration: 0.3, ease: "power2.in", onComplete: () => {
+    gsap.to(demoModal, { opacity: 0, duration: 0.16, ease: "power1.in", onComplete: () => {
       demoModal.style.display = "none";
       demoModal.classList.remove("active");
       document.body.style.overflow = "";
       if (window.lenis) window.lenis.start();
     }});
-    gsap.to(".demo-modal__card", { y: 20, scale: 0.96, duration: 0.3, ease: "power2.in" });
+    gsap.to(".demo-modal__card", { y: 10, opacity: 0, duration: 0.16, ease: "power1.in" });
   }
 
   const successGoToBookingBtn = document.getElementById("successGoToBookingBtn");
@@ -796,7 +796,7 @@ if (document.fonts && document.fonts.ready) {
     isWaitingForResponse = false;
     if (startDemoBtn) {
       startDemoBtn.disabled = false;
-      startDemoBtn.textContent = "ابدأ الدردشة مع علي";
+      startDemoBtn.textContent = "ابدأ الدردشة مع الموظف الذكي";
     }
     // reset templates selection
     templateButtons.forEach(btn => btn.classList.remove("active"));
@@ -831,9 +831,9 @@ if (document.fonts && document.fonts.ready) {
       activeBiz.name = cName || "مشروعك";
       activeBiz.bizType = tData.typeLabel;
 
-      // Update Chat Header details (Always Ali - Smart Automation Partner)
-      chatBizName.textContent = "علي — مستشار الأتمتة الذكي";
-      chatAvatar.textContent = "ع";
+      // Update Chat Header details (Smart Employee)
+      chatBizName.textContent = "الموظف الذكي";
+      chatAvatar.textContent = "ج";
 
       // Start Chat
       showScreen("demoChatScreen");
@@ -878,31 +878,15 @@ if (document.fonts && document.fonts.ready) {
 
   function showTypingIndicator() {
     if (typingIndicatorEl) return;
-    
-    const chatStatusEl = document.querySelector(".demo-chat-status");
-    if (chatStatusEl) {
-      chatStatusEl.innerHTML = "يكتب الآن… ✍️";
-      chatStatusEl.classList.add("is-typing");
-    }
 
     typingIndicatorEl = document.createElement("div");
     typingIndicatorEl.className = "typing-indicator";
-    typingIndicatorEl.innerHTML = `
-      <span class="typing-label">علي يكتب الآن</span>
-      <span class="typing-dots">
-        <span></span><span></span><span></span>
-      </span>
-    `;
+    typingIndicatorEl.innerHTML = `<span></span><span></span><span></span>`;
     demoChatBody.appendChild(typingIndicatorEl);
     demoChatBody.scrollTop = demoChatBody.scrollHeight;
   }
 
   function hideTypingIndicator() {
-    const chatStatusEl = document.querySelector(".demo-chat-status");
-    if (chatStatusEl) {
-      chatStatusEl.innerHTML = "نشط الآن 🟢";
-      chatStatusEl.classList.remove("is-typing");
-    }
     if (typingIndicatorEl) {
       typingIndicatorEl.remove();
       typingIndicatorEl = null;
@@ -942,7 +926,7 @@ if (document.fonts && document.fonts.ready) {
       hideTypingIndicator();
       addMessage(greetingText);
       isWaitingForResponse = false;
-    }, 600);
+    }, 150);
   }
 
   // Handle incoming user message
@@ -1063,7 +1047,7 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
     .then(data => {
       hideTypingIndicator();
       isWaitingForResponse = false;
-      if (startDemoBtn) { startDemoBtn.disabled = false; startDemoBtn.textContent = "ابدأ الدردشة مع علي"; }
+      if (startDemoBtn) { startDemoBtn.disabled = false; startDemoBtn.textContent = "ابدأ الدردشة مع الموظف الذكي"; }
       if (data.candidates && data.candidates[0] && data.candidates[0].content) {
         let replyText = data.candidates[0].content.parts[0].text.trim();
         const successRegex = /\n?SUCCESS_ORDER\n?/g;
@@ -1104,7 +1088,7 @@ You are the advanced AI Virtual Assistant for "${bizName}". Your primary goal is
     .catch(error => {
       hideTypingIndicator();
       isWaitingForResponse = false;
-      if (startDemoBtn) { startDemoBtn.disabled = false; startDemoBtn.textContent = "ابدأ الدردشة مع علي"; }
+      if (startDemoBtn) { startDemoBtn.disabled = false; startDemoBtn.textContent = "ابدأ الدردشة مع الموظف الذكي"; }
       console.error("Gemini Error:", error);
 
       const errorMsg = (error && error.error) || "";

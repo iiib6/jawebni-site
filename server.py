@@ -314,7 +314,9 @@ def chat():
                 else:
                     url = f"https://{location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/publishers/google/models/{model}:generateContent"
                     
-                r = requests.post(url, headers=headers, json=req_payload, timeout=20)
+                # Snappy timeout: 6s for 3.8-flash to prevent mobile chat lag, 12s for fast fallbacks
+                t_out = 6 if "3.8" in model else 12
+                r = requests.post(url, headers=headers, json=req_payload, timeout=t_out)
                 if r.status_code == 200:
                     res_json = r.json()
                     res_json["_model_used"] = f"Vertex AI: {model}"
