@@ -20,10 +20,37 @@ from contextlib import contextmanager
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
-# 🛡️ 1. Werkzeug ProxyFix: Trust exactly 1 reverse proxy hop (Render / Cloudflare)
-# Replaces request.remote_addr with the true client IP appended by the proxy,
-# completely ignoring any spoofed X-Forwarded-For headers injected by the attacker.
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+# 🛡️ 1. Werkzeug ProxyFix — trust ONLY as many reverse-proxy hops as really exist.
+# `x_for=N` makes ProxyFix read the Nth-from-right X-Forwarded-For value, i.e. the one
+# appended by the trusted proxy, discarding anything a client forged to its left.
+# Getting N wrong is a security bug in both directions:
+#   N too high  -> attacker-controlled header is trusted -> IP/rate-limit spoofing
+#   N too low   -> every visitor collapses into the proxy's IP -> one abuser locks
+#                  out all users, and analytics record the proxy address
+# So N must be configured, never guessed:
+#   Render (TLS terminates at Render's edge)          -> 1
+#   Cloudflare in front of Render                     -> 2
+#   serveo.net tunnel (share_online.bat)              -> 1
+#   plain `python server.py` / direct LAN exposure    -> 0 (trust nothing)
+def _resolve_proxy_hops():
+    raw = os.environ.get("TRUSTED_PROXY_HOPS", "").strip()
+    if raw:
+        try:
+            return max(0, min(5, int(raw)))
+        except ValueError:
+            print(f"⚠️ TRUSTED_PROXY_HOPS={raw!r} is not an integer; falling back to auto-detect.", file=sys.stderr)
+    # Auto-detect: Render sits behind exactly one edge proxy.
+    return 1 if os.environ.get("RENDER") else 0
+
+PROXY_HOPS = _resolve_proxy_hops()
+
+if PROXY_HOPS > 0:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=PROXY_HOPS, x_proto=1, x_host=1)
+    print(f"ProxyFix active: trusting {PROXY_HOPS} reverse-proxy hop(s) for client IP.")
+else:
+    # No ProxyFix at all -> request.remote_addr stays the real socket peer, so a
+    # forged X-Forwarded-For cannot influence IP identity or rate limiting.
+    print("ProxyFix disabled: using direct socket peer address (no proxy trusted).")
 
 # 🛡️ 2. Hard Request Body Limit (2MB) - Prevents memory exhaustion DoS
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
@@ -47,14 +74,21 @@ load_env()
 ADMIN_DEFAULT_USER = os.environ.get("ADMIN_USER", "admin").strip()
 ADMIN_DEFAULT_PASS = os.environ.get("ADMIN_PASS")
 
-# If running on Render or with production database, ADMIN_PASS MUST be explicitly configured
 if not ADMIN_DEFAULT_PASS:
+    # Never ship a hardcoded fallback credential: it ends up in git history and
+    # becomes a known password for anyone who clones the repo. Fail closed in
+    # production; for local dev mint a random one so nothing is guessable.
     if os.environ.get("RENDER") or os.environ.get("DATABASE_URL"):
         print("❌ CRITICAL CONFIGURATION ERROR: ADMIN_PASS environment variable must be set in production!", file=sys.stderr)
         sys.exit(1)
-    else:
-        # Local development fallback
-        ADMIN_DEFAULT_PASS = "aabbddaA1"
+    ADMIN_DEFAULT_PASS = secrets.token_urlsafe(24)
+    print(
+        "⚠️  ADMIN_PASS is not set. Generated a random one for THIS process only:\n"
+        f"    user = {ADMIN_DEFAULT_USER}\n"
+        f"    pass = {ADMIN_DEFAULT_PASS}\n"
+        "    It is not persisted — set ADMIN_PASS in .env to keep it stable.",
+        file=sys.stderr,
+    )
 else:
     ADMIN_DEFAULT_PASS = ADMIN_DEFAULT_PASS.strip()
 
@@ -111,6 +145,34 @@ def safe_compare(val1, val2):
         return secrets.compare_digest(val1.encode('utf-8'), val2.encode('utf-8'))
     except Exception:
         return False
+
+
+def credentials_match(username, password):
+    """
+    Verify a username/password pair in constant time.
+
+    Both comparisons are always evaluated: `safe_compare(a) and safe_compare(b)`
+    would short-circuit and leak, through response timing, whether the username
+    was the correct one.
+    """
+    admin_user, admin_pass = get_admin_creds()
+    user_ok = safe_compare(username, admin_user)
+    pass_ok = safe_compare(password, admin_pass)
+    return user_ok and pass_ok
+
+
+def issue_admin_token(username):
+    """Create a 7-day admin session token and persist it. Returns the token."""
+    token = secrets.token_hex(32)
+    expires_at = (
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+    ).strftime("%Y-%m-%d %H:%M:%S")
+    with db_session() as (conn, cursor):
+        cursor.execute(adapt_query("""
+            INSERT INTO admin_tokens (token, username, created_at, expires_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+        """), (token, username, expires_at))
+    return token
 
 # 🛡️ 6. Leak-Proof Database Architecture (Connection Pooling + Context Manager)
 _pg_pool = None
@@ -540,19 +602,22 @@ def send_lead_email(lead_data):
     </html>
     """
     
-    # 1. Primary: Google Apps Script Webhook
-    webhook_url = os.environ.get(
-        "GOOGLE_WEBHOOK_URL",
-        "https://script.google.com/macros/s/AKfycbyySbR7dOIUfLlF_xoIaxiAUCZvzUAarzA9FBDV2oS04Jb7S4f6g1un_OMeEtIYYskC/exec"
-    )
-    try:
-        import requests
-        res = requests.post(webhook_url, json=lead_data, timeout=10)
-        if res.status_code == 200:
-            safe_print(f"Lead email successfully dispatched via Webhook to {ADMIN_NOTIFICATION_EMAIL}")
-            return
-    except Exception as e:
-        safe_print(f"Google Webhook attempt failed: {str(e)}, trying direct SMTP fallback...", file=sys.stderr)
+    # 1. Primary: Google Apps Script Webhook.
+    # No hardcoded fallback: the endpoint is a public, unauthenticated URL, so
+    # baking one into source both leaks it and lets anyone who reads the repo
+    # (or anyone who guesses the /exec id) POST to it. Configure it explicitly.
+    webhook_url = os.environ.get("GOOGLE_WEBHOOK_URL", "").strip()
+    if webhook_url:
+        try:
+            import requests
+            res = requests.post(webhook_url, json=lead_data, timeout=10)
+            if res.status_code == 200:
+                safe_print(f"Lead email successfully dispatched via Webhook to {ADMIN_NOTIFICATION_EMAIL}")
+                return
+        except Exception as e:
+            safe_print(f"Google Webhook attempt failed: {str(e)}, trying direct SMTP fallback...", file=sys.stderr)
+    else:
+        safe_print("[Lead Recorded] GOOGLE_WEBHOOK_URL not configured; going straight to SMTP.", file=sys.stderr)
 
     # 2. Secondary: SMTP Fallback
     if smtp_user and smtp_pass:
@@ -762,28 +827,111 @@ def verify_token(token):
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        auth_header = request.headers.get("Authorization", "")
-        token = None
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1].strip()
-        
-        if not token:
-            token = request.cookies.get("jawebni_admin_token")
-            
-        username = verify_token(token)
+        username = verify_token(_token_from_request())
         if not username:
             return jsonify({"error": "غير مصرح لك بالوصول. يرجى تسجيل الدخول أولاً."}), 401
-            
+
         return f(*args, **kwargs)
     return decorated_function
+
+def _token_from_request():
+    """Pull an admin token from the Authorization header or the session cookie."""
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        token = request.cookies.get("jawebni_admin_token")
+    return token
+
+
+def _request_is_https():
+    return (
+        request.is_secure
+        or request.headers.get("X-Forwarded-Proto") == "https"
+        or bool(os.environ.get("RENDER"))
+    )
+
+
+def _set_session_cookie(response, token):
+    response.set_cookie(
+        "jawebni_admin_token",
+        token,
+        max_age=7 * 24 * 60 * 60,
+        httponly=True,
+        secure=_request_is_https(),
+        samesite="Lax",
+    )
+    return response
+
 
 @app.route('/pathogenesis')
 @app.route('/pathogenesis.html')
 def admin_page():
-    return app.send_static_file('admin.html')
+    """
+    Serve the admin dashboard only to authenticated sessions.
+
+    The dashboard used to be served to anyone who knew the path, which published
+    the login UI and an unauthenticated copy of the whole admin app. Now an
+    unauthenticated visitor gets a Basic Auth challenge; on success the server
+    mints a session token and sets the cookie, so the dashboard's own JS finds
+    itself already logged in and no second login is needed.
+    """
+    if verify_token(_token_from_request()):
+        return _admin_html_response()
+
+    credentials = request.authorization
+    if not (credentials and credentials.username):
+        return _admin_html_response(challenge=True)
+
+    if not credentials_match(credentials.username or "", credentials.password or ""):
+        # Deliberately re-challenge rather than 401 the page body.
+        return _admin_html_response(challenge=True)
+
+    try:
+        token = issue_admin_token(credentials.username)
+    except Exception as e:
+        print("Admin page gate token error:", str(e), file=sys.stderr)
+        return jsonify({"error": "حدث خطأ أثناء إنشاء الجلسة."}), 500
+
+    return _set_session_cookie(_admin_html_response(), token)
+
+
+def _admin_html_response(challenge=False):
+    """
+    Build the admin dashboard response.
+
+    On challenge, the status MUST be 401 — browsers only raise the Basic Auth
+    dialog for a 401 carrying WWW-Authenticate. A 200 with the same header is
+    ignored, which would silently serve the dashboard to anyone.
+
+    The challenge body is a minimal stub rather than admin.html, so the
+    dashboard markup itself stays undisclosed until credentials are supplied.
+    """
+    if challenge:
+        stub = (
+            "<!doctype html><html lang='ar' dir='rtl'><head><meta charset='utf-8'>"
+            "<meta name='robots' content='noindex,nofollow'>"
+            "<title>Jawebni Admin</title></head>"
+            "<body style='font-family:sans-serif;text-align:center;padding:15vh 20px;"
+            "background:#0f1a14;color:#F6F2E9'>"
+            "<h1 style='font-size:1.4rem'>🔒 الجوابي — لوحة التحكم</h1>"
+            "<p style='opacity:.75'>هذه المنطقة محمية. يرجى إدخال اسم المستخدم وكلمة المرور للمتابعة.</p>"
+            "</body></html>"
+        )
+        response = app.response_class(stub, status=401, mimetype="text/html")
+        response.headers["WWW-Authenticate"] = 'Basic realm="Jawebni Admin", charset="UTF-8"'
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        return response
+
+    response = app.send_static_file('admin.html')
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
 
 @app.route('/admin')
 @app.route('/admin.html')
+@app.route('/login')
 def admin_blocked():
     return jsonify({"error": "Page not found"}), 404
 
@@ -800,37 +948,18 @@ def admin_login():
     data = request.get_json(silent=True) or {}
     username = str(data.get("username", "")).strip()
     password = str(data.get("password", "")).strip()
-    
-    admin_user, admin_pass = get_admin_creds()
-    
-    # Safe constant-time comparison protected against non-ASCII UnicodeEncodeError / exceptions
-    if safe_compare(username, admin_user) and safe_compare(password, admin_pass):
-        token = secrets.token_hex(32)
-        expires_at = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-        
+
+    if credentials_match(username, password):
         try:
-            with db_session() as (conn, cursor):
-                cursor.execute(adapt_query("""
-                    INSERT INTO admin_tokens (token, username, created_at, expires_at)
-                    VALUES (?, ?, CURRENT_TIMESTAMP, ?)
-                """), (token, username, expires_at))
-            
+            token = issue_admin_token(username)
+
             res = jsonify({
                 "success": True,
                 "message": "تم تسجيل الدخول بنجاح",
                 "token": token,
                 "username": username
             })
-            is_https = request.is_secure or request.headers.get("X-Forwarded-Proto") == "https" or bool(os.environ.get("RENDER"))
-            res.set_cookie(
-                "jawebni_admin_token",
-                token,
-                max_age=7*24*60*60,
-                httponly=True,
-                secure=is_https,
-                samesite="Lax"
-            )
-            return res
+            return _set_session_cookie(res, token)
         except Exception as e:
             print("Login DB error:", str(e), file=sys.stderr)
             return jsonify({"error": "حدث خطأ في السيرفر أثناء تسجيل الدخول."}), 500
@@ -839,30 +968,30 @@ def admin_login():
 
 @app.route('/api/admin/logout', methods=['POST'])
 def admin_logout():
-    token = request.cookies.get("jawebni_admin_token")
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.split(" ", 1)[1].strip()
-        
+    token = _token_from_request()
+
     if token:
         try:
             with db_session() as (conn, cursor):
                 cursor.execute(adapt_query("DELETE FROM admin_tokens WHERE token = ?"), (token,))
         except Exception as e:
             print("Logout DB error:", str(e), file=sys.stderr)
-            
+
     res = jsonify({"success": True, "message": "تم تسجيل الخروج بنجاح."})
-    res.delete_cookie("jawebni_admin_token")
+    # Attributes must mirror those used when setting the cookie or the browser
+    # will keep it.
+    res.delete_cookie(
+        "jawebni_admin_token",
+        path="/",
+        secure=_request_is_https(),
+        httponly=True,
+        samesite="Lax",
+    )
     return res
 
 @app.route('/api/admin/check-auth', methods=['GET'])
 def check_auth():
-    token = request.cookies.get("jawebni_admin_token")
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.split(" ", 1)[1].strip()
-        
-    username = verify_token(token)
+    username = verify_token(_token_from_request())
     if username:
         return jsonify({"authenticated": True, "username": username})
     return jsonify({"authenticated": False}), 401
@@ -1050,15 +1179,27 @@ def export_leads_csv():
 # 🛡️ 14. Security Headers & Selective Caching Policy
 @app.after_request
 def add_security_headers(response):
-    # Dynamic APIs and admin dashboards get no-store
-    if request.path.startswith('/api/') or request.path in ('/admin.html', '/pathogenesis', '/pathogenesis.html'):
+    # Caching policy: HTML must revalidate so a deploy is visible immediately,
+    # while fingerprinted-ish static assets (css/js/images/video) can be held.
+    path = request.path
+    is_html = path in ('/', '/index.html', '/admin.html', '/pathogenesis', '/pathogenesis.html') or path.endswith('.html')
+    is_asset = path.startswith(('/css/', '/js/', '/assets/'))
+
+    if path.startswith('/api/') or path in ('/admin.html', '/pathogenesis', '/pathogenesis.html'):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    elif is_html:
+        # Always revalidate HTML, never serve a stale shell after a deploy.
+        response.headers["Cache-Control"] = "no-cache"
+    elif is_asset:
+        response.headers["Cache-Control"] = "public, max-age=86400"
     else:
-        # Static files (CSS, JS, fonts, images) are cached properly
         response.headers["Cache-Control"] = "public, max-age=3600"
-    
+
+    if is_html:
+        response.headers["X-Robots-Tag"] = "noindex, nofollow" if path != '/' else response.headers.get("X-Robots-Tag", "index, follow")
+
     # 🛡️ OWASP Hardened Security Headers
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-Content-Type-Options"] = "nosniff"
