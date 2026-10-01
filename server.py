@@ -275,13 +275,18 @@ def chat():
 
     client_payload = request.json or {}
     
+    gen_config = client_payload.get("generationConfig", {})
+    if "thinkingConfig" not in gen_config:
+        gen_config["thinkingConfig"] = {"thinkingBudget": 0}
+    if "temperature" not in gen_config:
+        gen_config["temperature"] = 0.7
+    if "maxOutputTokens" not in gen_config:
+        gen_config["maxOutputTokens"] = 1000
+
     req_payload = {
         "contents": client_payload.get("contents", []),
         "systemInstruction": client_payload.get("systemInstruction", {}),
-        "generationConfig": client_payload.get("generationConfig", {
-            "temperature": 0.7,
-            "maxOutputTokens": 2048
-        })
+        "generationConfig": gen_config
     }
 
     # 2. Try Service Account with Vertex AI first
@@ -290,11 +295,11 @@ def chat():
         import requests
         project = sa_data.get("project_id", "gen-lang-client-0148309017")
         
-        # Vertex AI Model endpoints configuration (gemini-2.5-flash global is fastest ~1.7s)
+        # Vertex AI Model endpoints: Primary = gemini-3.8-flash, Fallback = gemini-3.1-flash-lite
         vertex_models = [
+            ("gemini-3.8-flash", "global"),
+            ("gemini-3.1-flash-lite", "global"),
             ("gemini-2.5-flash", "global"),
-            ("gemini-2.5-flash", "us-central1"),
-            ("gemini-3.7-flash", "global"),
         ]
         
         headers = {
@@ -322,9 +327,9 @@ def chat():
     # 3. Fallback to Gemini API Key if available
     if API_KEY:
         models = [
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite"
+            "gemini-3.8-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-2.5-flash"
         ]
         
         for model in models:
