@@ -85,13 +85,29 @@ mm.add(
     letter.style.fontSize = cfg.fontSize + "px";
 
     thread.setAttribute("d", cfg.d);
-    const threadLength = thread.getTotalLength();
-    thread.style.strokeDasharray = threadLength;
-    thread.style.strokeDashoffset = reduceMotion ? 0 : threadLength;
+    let rawLen = 0;
+    try {
+      rawLen = thread.getTotalLength();
+    } catch (e) {
+      rawLen = 0;
+    }
+    const threadLength = rawLen > 50 ? rawLen : (isMobile ? 592 : 1240);
+    thread.style.strokeDasharray = threadLength + "px";
+    thread.style.strokeDashoffset = threadLength + "px";
 
     milestonesGroup.innerHTML = "";
-    const milestoneEls = MILESTONE_FRACTIONS.map((f) => {
-      const pt = thread.getPointAtLength(threadLength * f);
+    const milestoneEls = MILESTONE_FRACTIONS.map((f, idx) => {
+      let pt = null;
+      try {
+        pt = thread.getPointAtLength(threadLength * f);
+      } catch (e) {
+        pt = null;
+      }
+      if (!pt || (pt.x === 0 && pt.y === 0)) {
+        const mobileFallbacks = [{ x: 772, y: 220 }, { x: 670, y: 400 }, { x: 675, y: 550 }];
+        const desktopFallbacks = [{ x: 380, y: 150 }, { x: 630, y: 340 }, { x: 720, y: 640 }];
+        pt = isMobile ? mobileFallbacks[idx] : desktopFallbacks[idx];
+      }
       const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
       g.setAttribute("transform", `translate(${pt.x}, ${pt.y})`);
       const diamond = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -102,17 +118,7 @@ mm.add(
       return diamond;
     });
 
-    /* مسار «تقليل الحركة»: مشهد مكتمل ساكن */
-    if (reduceMotion) {
-      gsap.set(dot, { x: DOT_END.x, y: DOT_END.y });
-      gsap.set(milestoneEls, { scale: 1, opacity: 1, fill: GOLD });
-      gsap.set(".hero__svg", { autoAlpha: 0.08 });
-      gsap.set([".hero__wordmark", ".hero__tagline", ".hero__sub"], { autoAlpha: 1 });
-      gsap.set(".hero__cue", { autoAlpha: 0 });
-      return;
-    }
-
-    const startPt = thread.getPointAtLength(0);
+    const startPt = { x: isMobile ? 720 : -80, y: isMobile ? 80 : 300 };
     gsap.set(dot, { x: startPt.x, y: startPt.y });
     gsap.set(milestoneEls, { scale: 0.45, opacity: 0.28 });
     gsap.set(".hero__svg", { clearProps: "all" });
@@ -120,18 +126,21 @@ mm.add(
     if (isMobile) {
       /* على الموبايل: تشغيل سينمائي تلقائي فوري عند فتح الصفحة بدون قفل الشاشة (No Scroll-Lock Lag) */
       const mobileTl = gsap.timeline({
-        delay: 0.25,
+        delay: 0.15,
         defaults: { ease: "power1.inOut" },
       });
 
       mobileTl
-        // الخيط ينرسم والنقطة تسافر عليه
-        .to(thread, { strokeDashoffset: 0, duration: 1.4, ease: "power1.inOut" }, 0)
+        // الخيط ينرسم والنقطة تسافر عليه بإحداثيات المسار المباشرة (دون اعتماد على مصفوفات المتصفح)
+        .to(thread, { strokeDashoffset: 0, duration: 1.35, ease: "power1.inOut" }, 0)
         .to(
           dot,
           {
-            motionPath: { path: thread, align: thread, alignOrigin: [0.5, 0.5] },
-            duration: 1.4,
+            motionPath: {
+              path: cfg.d,
+              autoRotate: false,
+            },
+            duration: 1.35,
             ease: "power1.inOut",
           },
           0
@@ -142,7 +151,7 @@ mm.add(
         mobileTl.to(
           milestoneEls[i],
           { scale: 1.15, opacity: 1, fill: GOLD, duration: 0.2, ease: "back.out(2)" },
-          1.4 * f
+          1.35 * f
         );
       });
 
@@ -152,40 +161,40 @@ mm.add(
           ".dot-core",
           { scale: dotScale },
           { scale: dotScale * 1.35, duration: 0.2, ease: "power2.out", yoyo: true, repeat: 1 },
-          1.4
+          1.35
         )
         .fromTo(
           ".dot-glow",
           { opacity: 0.85, scale: dotScale * 0.4 },
           { opacity: 0, scale: dotScale * 2.2, duration: 0.55, ease: "power1.out" },
-          1.4
+          1.35
         )
         // وقفة واضحة ليرى الزائر حرف «ج» المكتمل ثم يتراجع كعلامة مائية
-        .to(".hero__svg", { autoAlpha: 0.08, scale: 1.12, duration: 0.7, ease: "power2.inOut" }, 1.95)
+        .to(".hero__svg", { autoAlpha: 0.08, scale: 1.12, duration: 0.65, ease: "power2.inOut" }, 1.85)
         // ظهور العنوان والشعار والوصف
         .fromTo(
           ".hero__wordmark",
-          { y: 40, autoAlpha: 0 },
+          { y: 35, autoAlpha: 0 },
           { y: 0, autoAlpha: 1, duration: 0.6, ease: "power2.out" },
-          2.15
+          2.05
         )
         .fromTo(
           ".hero__tagline",
-          { y: 25, autoAlpha: 0 },
+          { y: 20, autoAlpha: 0 },
           { y: 0, autoAlpha: 1, duration: 0.5, ease: "power2.out" },
-          2.35
+          2.25
         )
         .fromTo(
           ".hero__sub",
-          { y: 20, autoAlpha: 0 },
+          { y: 15, autoAlpha: 0 },
           { y: 0, autoAlpha: 1, duration: 0.5, ease: "power2.out" },
-          2.5
+          2.4
         )
         .fromTo(
           ".hero__cue",
-          { autoAlpha: 0, y: 15 },
+          { autoAlpha: 0, y: 10 },
           { autoAlpha: 1, y: 0, duration: 0.5, ease: "power2.out" },
-          2.7
+          2.6
         );
 
       // إذا قام المستخدم بالتمرير فوراً قبل اكتمال المشهد، يتم تسريع الأنميشن فوراً حتى يظهر المحتوى ولا ينتظر
@@ -219,7 +228,7 @@ mm.add(
         .to(
           dot,
           {
-            motionPath: { path: thread, align: thread, alignOrigin: [0.5, 0.5] },
+            motionPath: { path: cfg.d, autoRotate: false },
             duration: 0.75,
           },
           0

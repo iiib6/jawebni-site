@@ -178,7 +178,10 @@ body {
   transform-origin: center;
 }
 
-#dot { transform-box: fill-box; }
+/* #dot يتحرك بإحداثيات الـ SVG المباشرة (viewBox) لتفادي تشوّه إحداثيات أندرويد */
+#dot {
+  transform-origin: 0 0;
+}
 
 .dot-core {
   fill: var(--gold);
